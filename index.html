@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="build" content="2026-11-04 22:58">
+  <meta name="build" content="2026-11-04 23:24">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0e1a22">
   <meta name="mobile-web-app-capable" content="yes">
@@ -65,7 +65,15 @@ body { display: flex; justify-content: center; }
 #battle { position: relative; flex: 1 1 auto; min-height: 230px; overflow: hidden; container-type: size; }
 #scene { position: absolute; inset: 0; overflow: hidden; }
 #scene .layer { position: absolute; left: 0; bottom: 0; width: 100%; will-change: transform; }
-#scene .layer.tiled { width: 200%; }
+#scene .layer.tiled { width: 500%; }
+#scene .flick { animation: flick 1.6s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes flick { 0% { opacity: 1; transform: scale(1); } 30% { opacity: .75; transform: scale(.94, 1.04); } 60% { opacity: .95; transform: scale(1.03, .97); } 100% { opacity: .8; transform: scale(.97, 1.02); } }
+#scene .motes { position: absolute; inset: 0; pointer-events: none; }
+#scene .motes i { position: absolute; width: 3px; height: 3px; border-radius: 50%; opacity: 0; animation: mote linear infinite; }
+@keyframes mote { 0% { opacity: 0; transform: translate(0, 0); } 20% { opacity: .55; } 80% { opacity: .35; } 100% { opacity: 0; transform: translate(-30px, 40px); } }
+#scene .motes.embers i { animation-name: ember; }
+@keyframes ember { 0% { opacity: 0; transform: translate(0, 60px); } 20% { opacity: .9; } 100% { opacity: 0; transform: translate(15px, -50px); } }
+@media (prefers-reduced-motion: reduce) { #scene .flick, #scene .motes i { animation: none; } #scene .motes { display: none; } }
 #scene .layer svg { width: 100%; height: auto; }
 #stage { position: absolute; top: 10px; left: 0; right: 0; text-align: center; z-index: 2; }
 #depth-label { display: inline-block; font-weight: 800; font-size: 14px; background: rgba(0,0,0,.3); padding: 5px 14px; border-radius: 999px; }
@@ -641,6 +649,10 @@ body { display: flex; justify-content: center; }
         <button id="btn-sound" class="toggle" aria-pressed="true"><i></i></button>
       </div>
       <div class="set-row">
+        <span data-i18n="Hudba">Hudba</span>
+        <button id="btn-music" class="toggle" aria-pressed="true"><i></i></button>
+      </div>
+      <div class="set-row">
         <span data-i18n="Hlasitost">Hlasitost</span>
         <input id="vol" type="range" min="0" max="100" step="5" value="70">
       </div>
@@ -805,7 +817,7 @@ const EN = {
   'Lepší o {v} síly': '{v} more power', 'Horší o {v} síly': '{v} less power', 'Stejně silný': 'Equally strong',
   'starý se přetaví': 'old one gets smelted', 'prázdný slot': 'empty slot', 'síla': 'power',
   'Úkoly': 'Quests', 'Nastavení': 'Settings', 'Síla': 'Power', 'Úroveň kovárny': 'Forge level', 'Kovat': 'Forge', 'KOVAT': 'FORGE',
-  'Přísady a šance': 'Ingredients and odds', 'Přísady': 'Ingredients', 'Zvuky': 'Sound', 'Hlasitost': 'Volume', 'Jazyk': 'Language',
+  'Přísady a šance': 'Ingredients and odds', 'Přísady': 'Ingredients', 'Zvuky': 'Sound effects', 'Hudba': 'Music', 'Hlasitost': 'Volume', 'Jazyk': 'Language',
   'Smazat postup a začít znovu': 'Delete progress and start over', 'Zavřít': 'Close', 'Současný': 'Current', 'Nový': 'New',
   'Přetavit': 'Smelt', 'Vybavit': 'Equip', 'Sloučit s nasazenou': 'Merge with equipped',
   'úr.': 'lvl', 'Prázdné': 'Empty', 'zk.': 'XP', 'KOVÁRNA ÚR. {v}': 'FORGE LVL {v}',
@@ -1661,7 +1673,7 @@ function createNewState() {
 
     stats: { itemsForged: 0, itemsSmelted: 0, monstersKilled: 0, coalBought: 0, chestsOpened: 0, deaths: 0, diamondsEarned: 0, wavesCleared: 0 },
     nextItemId: 1,
-    settings: { sound: true, volume: 0.7, lang: 'en' },
+    settings: { sound: true, music: true, volume: 0.7, lang: 'en' },
     diamonds: 0,
     companions: {},
     slotLevels: {}, // vylepšení slotů za zlato (nuluje se při znovuzrození)
@@ -2936,44 +2948,6 @@ function monsterSvg(shape, theme) {
 }
 
 // ---------------------------------------------------------------------
-//  Pozadí vrstvy – vrstvy pro paralaxu. Souřadnice 412 × 400, podlaha od y = 300.
-//  Každá pohyblivá vrstva je dlaždice široká 412 (okraje na sebe navazují);
-//  battleView ji vykreslí dvakrát vedle sebe a posouvá.
-//  speed = jak rychle se vrstva posouvá při chůzi (0 = stojí, 1 = jako podlaha).
-// ---------------------------------------------------------------------
-function sceneLayers(theme, layerId) {
-  const c = theme;
-  const lava = layerId === 'lava';
-  const gid = `glow-${layerId}`;
-  const glow = `<radialGradient id="${gid}"><stop offset="0" stop-color="${c.crystal}" stop-opacity=".35"/><stop offset="1" stop-color="${c.crystal}" stop-opacity="0"/></radialGradient>`;
-  return {
-    sky: `linear-gradient(180deg, ${c.sky[0]}, ${c.sky[1]})`,
-    layers: [
-      { speed: 0.15, tile: true, svg: `
-        <path d="M0 190 L40 150 L70 175 L110 110 L150 160 L190 130 L230 170 L270 100 L320 150 L360 120 L412 190 L412 400 L0 400 Z" fill="${c.back}"/>` },
-      { speed: 0.35, tile: true, svg: `
-        <path d="M0 0 H412 V24 L392 24 L384 60 L376 24 L330 24 L322 46 L314 24 L240 24 L232 78 L224 24 L150 24 L143 52 L136 24 L70 24 L62 70 L54 24 L0 24 Z" fill="${c.top}"/>` },
-      { speed: 0.55, tile: true, defs: glow, svg: `
-        <path d="M0 290 L30 240 L60 255 L90 225 L120 270 L130 300 L0 300 Z" fill="${c.mid}"/>
-        <path d="M290 300 L300 280 L330 230 L360 245 L390 210 L412 240 L412 300 Z" fill="${c.mid}"/>
-        <circle cx="372" cy="260" r="46" fill="url(#${gid})"/>
-        <path d="M360 290 L366 240 L376 290 Z M372 292 L384 248 L392 292 Z M350 292 L352 262 L362 292 Z" fill="${c.crystal}"/>
-        <circle cx="40" cy="270" r="34" fill="url(#${gid})"/>
-        <path d="M30 296 L36 256 L44 296 Z M42 296 L52 266 L56 296 Z" fill="${c.crystal}"/>
-        <path d="M190 298 L196 278 L202 298 Z" fill="${c.crystal}" opacity=".7"/>` },
-      { speed: 0, tile: false, svg: `
-        <path d="M0 300 Q206 285 412 300 L412 400 L0 400 Z" fill="${c.floor}"/>` },
-      { speed: 1, tile: true, svg: `
-        <path d="M0 330 Q103 324 206 324 Q309 324 412 330" stroke="${c.floor2}" stroke-width="${lava ? 4 : 3}" fill="none"/>
-        <ellipse cx="250" cy="372" rx="26" ry="6" fill="${c.floor2}" opacity="${lava ? 0.6 : 1}"/>
-        <ellipse cx="40" cy="360" rx="18" ry="5" fill="${c.floor2}" opacity="${lava ? 0.6 : 1}"/>
-        <ellipse cx="150" cy="345" rx="9" ry="3" fill="${c.floor2}" opacity="${lava ? 0.6 : 1}"/>
-        <ellipse cx="350" cy="390" rx="14" ry="4" fill="${c.floor2}" opacity="${lava ? 0.6 : 1}"/>` },
-    ],
-  };
-}
-
-// ---------------------------------------------------------------------
 //  Pomocníci – malé ploché postavičky vedle hrdiny
 // ---------------------------------------------------------------------
 const COMPANION_SVG = {
@@ -2998,7 +2972,7 @@ const COMPANION_SVG = {
     <path d="M16 24 l-4 3 M20 25 l-2 3" stroke="#e88a9a" stroke-width="2" stroke-linecap="round"/></svg>`,
 };
 
-return { rarityColor, weaponShape, weaponSvg, itemIconSvg, heroSvg, monsterSvg, sceneLayers, COMPANION_SVG };
+return { rarityColor, weaponShape, weaponSvg, itemIconSvg, heroSvg, monsterSvg, COMPANION_SVG };
 })();
 
 // ===== js/core/loot.js =====
@@ -4246,15 +4220,211 @@ function showToast(html, ms = 1600) {
 return { buildStatic, renderCoal, renderBattle, animateAttack, renderPendingItem, renderAll, showToast };
 })();
 
+// ===== js/ui/scenery.js =====
+const __m30_js_ui_scenery_js = (() => {
+
+// Pozadí jeskyně – proměnlivé: každá vrstva pozadí je pás několika RŮZNÝCH dlaždic
+// (krápníky, skály, krystaly, pochodně, rekvizity podle prostředí), takže se při chůzi
+// scéna pořád mění. Dlaždice se generují z pevného „semínka“ (stejná vrstva = stejná krajina).
+// Souřadnice jedné dlaždice 412 × 400, podlaha od y = 300. Okraje dlaždic na sebe navazují.
+// Jen vrací řetězce SVG; stav hry nemění.
+
+const TILE = 412;
+const STRIP_TILES = 4; // počet různých dlaždic v pásu (pak se pás opakuje)
+
+function rng(seed) {
+  let s = (seed * 9301 + 49297) % 233280 || 1;
+  return () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+}
+const r1 = (v) => Math.round(v * 10) / 10;
+
+// Zubatý hřbet od x=0 do 412, konce vždy v `edgeY` (ať dlaždice navazují)
+function ridge(R, edgeY, minY, maxY, steps, bottom, flip = false) {
+  let d = `M0 ${edgeY}`;
+  for (let i = 1; i < steps; i++) {
+    const x = (412 / steps) * i + (R() - 0.5) * (412 / steps) * 0.6;
+    d += ` L${r1(x)} ${r1(minY + R() * (maxY - minY))}`;
+  }
+  d += ` L412 ${edgeY} L412 ${bottom} L0 ${bottom} Z`;
+  return flip ? d : d;
+}
+
+// ---------- jednotlivé rekvizity ----------
+function crystals(x, y, s, c, gid) {
+  return `<circle cx="${x}" cy="${y - 18 * s}" r="${40 * s}" fill="url(#${gid})"/>
+    <path d="M${x - 10 * s} ${y} L${x - 5 * s} ${y - 44 * s} L${x + 2 * s} ${y} Z M${x} ${y} L${x + 10 * s} ${y - 36 * s} L${x + 15 * s} ${y} Z M${x - 20 * s} ${y} L${x - 17 * s} ${y - 22 * s} L${x - 9 * s} ${y} Z" fill="${c}"/>`;
+}
+function rock(x, y, s, fill) {
+  return `<path d="M${x - 34 * s} ${y} L${x - 22 * s} ${y - 30 * s} L${x - 4 * s} ${y - 44 * s} L${x + 18 * s} ${y - 34 * s} L${x + 34 * s} ${y} Z" fill="${fill}"/>`;
+}
+function stalagmite(x, y, s, fill) {
+  return `<path d="M${x - 12 * s} ${y} L${x - 2 * s} ${y - 60 * s} L${x + 3 * s} ${y - 66 * s} L${x + 12 * s} ${y} Z" fill="${fill}"/>`;
+}
+function torch(x, y, wood) {
+  return `<rect x="${x - 2}" y="${y - 34}" width="4" height="34" rx="2" fill="${wood}"/>
+    <circle cx="${x}" cy="${y - 40}" r="26" fill="url(#torch-glow)" class="flick"/>
+    <path d="M${x} ${y - 52} Q${x + 7} ${y - 40} ${x} ${y - 34} Q${x - 7} ${y - 40} ${x} ${y - 52} Z" fill="#ffb347" class="flick"/>
+    <path d="M${x} ${y - 46} Q${x + 3} ${y - 39} ${x} ${y - 36} Q${x - 3} ${y - 39} ${x} ${y - 46} Z" fill="#fff1c1"/>`;
+}
+function mushroom(x, y, s, cap, glow) {
+  return `<rect x="${x - 2 * s}" y="${y - 16 * s}" width="${4 * s}" height="${16 * s}" fill="#d8cbb5" opacity=".8"/>
+    <path d="M${x - 11 * s} ${y - 14 * s} Q${x} ${y - 30 * s} ${x + 11 * s} ${y - 14 * s} Z" fill="${cap}"/>
+    <circle cx="${x - 4 * s}" cy="${y - 19 * s}" r="${1.6 * s}" fill="${glow}"/><circle cx="${x + 4 * s}" cy="${y - 17 * s}" r="${1.3 * s}" fill="${glow}"/>`;
+}
+function beam(x, top, bottom, wood) { // důlní výdřeva
+  return `<rect x="${x - 4}" y="${top}" width="8" height="${bottom - top}" fill="${wood}"/>
+    <rect x="${x + 70}" y="${top}" width="8" height="${bottom - top}" fill="${wood}"/>
+    <rect x="${x - 10}" y="${top - 8}" width="98" height="10" fill="${wood}"/>
+    <path d="M${x + 4} ${top + 2} L${x + 20} ${top + 2} L${x + 4} ${top + 18} Z M${x + 70} ${top + 2} L${x + 54} ${top + 2} L${x + 70} ${top + 18} Z" fill="${wood}"/>`;
+}
+function pillar(x, top, bottom, fill, broken) {
+  const t = broken ? top + 40 : top;
+  return `<rect x="${x - 13}" y="${t}" width="26" height="${bottom - t}" fill="${fill}"/>
+    <rect x="${x - 19}" y="${bottom - 8}" width="38" height="8" fill="${fill}"/>
+    ${broken ? `<path d="M${x - 13} ${t} L${x - 4} ${t - 10} L${x + 5} ${t - 3} L${x + 13} ${t - 14} L${x + 13} ${t} Z" fill="${fill}"/>`
+      : `<rect x="${x - 19}" y="${t}" width="38" height="8" fill="${fill}"/>`}
+    <rect x="${x - 4}" y="${t + 20}" width="3" height="${bottom - t - 40}" fill="#000" opacity=".15"/>`;
+}
+function chain(x, len, fill) {
+  let s = '';
+  for (let y = 0; y < len; y += 10) s += `<rect x="${x - 2}" y="${y}" width="4" height="7" rx="2" fill="${fill}"/>`;
+  return s;
+}
+function lantern(x, y, wood) {
+  return `<rect x="${x - 1}" y="20" width="2" height="${y - 20}" fill="${wood}"/>
+    <circle cx="${x}" cy="${y + 8}" r="22" fill="url(#torch-glow)" class="flick"/>
+    <rect x="${x - 6}" y="${y}" width="12" height="15" rx="3" fill="#ffcf6a"/>
+    <rect x="${x - 7}" y="${y - 2}" width="14" height="4" fill="${wood}"/>`;
+}
+function root(x, len, fill) {
+  return `<path d="M${x} 20 Q${x + 8} ${20 + len * 0.4} ${x - 3} ${20 + len * 0.7} Q${x - 8} ${20 + len * 0.9} ${x + 2} ${20 + len}" stroke="${fill}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+}
+
+// ---------- vrstvy pásu ----------
+// Vzdálená stěna (pomalá)
+function backTile(R, id, c, gid) {
+  let s = `<path d="${ridge(R, 190, 95, 175, 7, 400)}" fill="${c.back}"/>`;
+  const x = 60 + R() * 290;
+  if (id === 'lava' && R() < 0.8) {        // lávový vodopád
+    s += `<rect x="${x}" y="110" width="14" height="190" fill="${c.floor2}" opacity=".85"/><circle cx="${x + 7}" cy="290" r="40" fill="url(#${gid})"/>`;
+  } else if (id === 'ruins') {             // vzdálené oblouky
+    s += `<path d="M${x - 50} 300 V200 Q${x} 140 ${x + 50} 200 V300 H${x + 30} V210 Q${x} 175 ${x - 30} 210 V300 Z" fill="${c.mid}" opacity=".6"/>`;
+  } else if (id === 'crystal' || id === 'heart') { // obří krystaly v dálce
+    s += `<path d="M${x - 20} 300 L${x} 130 L${x + 22} 300 Z M${x + 18} 300 L${x + 40} 190 L${x + 52} 300 Z" fill="${c.crystal}" opacity=".18"/>`;
+  } else if (id === 'abyss') {             // levitující skály
+    s += `<path d="M${x - 30} 150 L${x + 30} 150 L${x + 8} 185 Z" fill="${c.mid}" opacity=".7"/><circle cx="${x}" cy="140" r="30" fill="url(#${gid})"/>`;
+  } else if (R() < 0.6) {                  // průrva se světlem
+    s += `<ellipse cx="${x}" cy="160" rx="26" ry="38" fill="${c.sky[0]}" opacity=".9"/><circle cx="${x}" cy="160" r="45" fill="url(#${gid})" opacity=".6"/>`;
+  }
+  return s;
+}
+
+// Strop s krápníky + visící věci
+function ceilingTile(R, id, c, wood) {
+  let d = 'M0 0 H412 V24';
+  let x = 400;
+  while (x > 14) {
+    const w = 8 + R() * 14, h = 14 + R() * 60;
+    d += ` L${r1(x)} 24 L${r1(x - w / 2)} ${r1(24 + h)} L${r1(x - w)} 24`;
+    x -= w + 10 + R() * 40;
+  }
+  d += ' L0 24 Z';
+  let s = `<path d="${d}" fill="${c.top}"/>`;
+  const hx = 40 + R() * 330;
+  if (id === 'clay') s += root(hx, 40 + R() * 50, c.mid) + root(hx + 26, 30 + R() * 40, c.mid);
+  else if (id === 'iron' && R() < 0.7) s += lantern(hx, 70 + R() * 40, wood);
+  else if ((id === 'ruins' || id === 'abyss') && R() < 0.8) s += chain(hx, 60 + R() * 70, c.mid) + chain(hx + 30, 40 + R() * 40, c.mid);
+  else if (R() < 0.35) s += lantern(hx, 60 + R() * 50, wood);
+  return s;
+}
+
+// Střední plán: skály, krystaly, pochodně a rekvizity prostředí
+function midTile(R, id, c, gid, wood) {
+  let s = '';
+  // 1–2 skupiny skal
+  const n = 1 + Math.floor(R() * 2);
+  for (let i = 0; i < n; i++) {
+    const x = 50 + R() * 312;
+    s += R() < 0.5 ? rock(x, 300, 0.7 + R() * 0.8, c.mid) : stalagmite(x, 300, 0.6 + R() * 0.9, c.mid);
+  }
+  // krystaly
+  if (R() < 0.75) s += crystals(r1(40 + R() * 330), 296, 0.6 + R() * 0.6, c.crystal, gid);
+  // rekvizita prostředí
+  const px = r1(60 + R() * 290), roll = R();
+  if (id === 'clay') s += roll < 0.6 ? mushroom(px, 298, 1 + R(), '#c46a4a', '#ff9a6a') + mushroom(px + 16, 298, 0.7, '#d98a5a', '#ff9a6a') : '';
+  else if (id === 'stone') s += roll < 0.5 ? stalagmite(px, 300, 1.4, c.back) : '';
+  else if (id === 'iron') s += roll < 0.6 ? beam(px - 40, 150, 300, wood) : '';
+  else if (id === 'crystal') s += crystals(px, 298, 1.1, c.crystal, gid);
+  else if (id === 'lava') s += roll < 0.6 ? `<ellipse cx="${px}" cy="300" rx="40" ry="6" fill="${c.floor2}"/><circle cx="${px}" cy="290" r="40" fill="url(#${gid})"/>` : '';
+  else if (id === 'ruins') s += roll < 0.7 ? pillar(px, 140 + R() * 40, 300, c.back, R() < 0.5) : '';
+  else if (id === 'abyss') s += roll < 0.6 ? `<path d="M${px - 30} 300 Q${px} 200 ${px + 30} 300 Z" fill="${c.back}"/><circle cx="${px}" cy="250" r="5" fill="${c.crystal}" class="flick"/>` : '';
+  else if (id === 'heart') s += roll < 0.7 ? `<path d="M${px - 40} 300 L${px - 10} 230 L${px + 20} 270 L${px + 40} 300 Z" fill="${c.mid}"/><path d="M${px - 25} 290 L${px - 8} 250 L${px + 8} 275" stroke="${c.crystal}" stroke-width="3" fill="none"/>` : '';
+  // pochodeň – zhruba v každé druhé dlaždici (ne v lávě a propasti)
+  if (id !== 'lava' && id !== 'abyss' && R() < 0.5) s += torch(r1(80 + R() * 250), 300, wood);
+  return s;
+}
+
+// Podlaha – detaily pod nohama (nejrychlejší)
+function floorTile(R, id, c) {
+  const lava = id === 'lava';
+  const op = lava ? 0.6 : 1;
+  let s = '';
+  if (id === 'iron') { // koleje
+    s += `<rect x="0" y="352" width="412" height="3" fill="${c.floor2}"/><rect x="0" y="366" width="412" height="3" fill="${c.floor2}"/>`;
+    for (let x = 10; x < 412; x += 34) s += `<rect x="${x}" y="349" width="6" height="23" fill="${c.floor2}" opacity=".7"/>`;
+  } else {
+    s += `<path d="M0 330 Q103 ${324 + R() * 6} 206 ${324 + R() * 4} Q309 ${324 + R() * 6} 412 330" stroke="${c.floor2}" stroke-width="${lava ? 4 : 3}" fill="none"/>`;
+  }
+  const k = 3 + Math.floor(R() * 4);
+  for (let i = 0; i < k; i++) {
+    s += `<ellipse cx="${r1(10 + R() * 392)}" cy="${r1(340 + R() * 55)}" rx="${r1(6 + R() * 22)}" ry="${r1(2 + R() * 4)}" fill="${c.floor2}" opacity="${op}"/>`;
+  }
+  if (lava && R() < 0.7) { // žhavá prasklina
+    const x = 40 + R() * 300;
+    s += `<path d="M${r1(x)} 345 L${r1(x + 20)} 360 L${r1(x + 12)} 372 L${r1(x + 40)} 388" stroke="#ffb347" stroke-width="3" fill="none" class="flick"/>`;
+  }
+  if (id === 'ruins' && R() < 0.6) { // dlaždice podlahy
+    const x = 30 + R() * 300;
+    s += `<rect x="${r1(x)}" y="370" width="60" height="14" fill="${c.floor2}"/><rect x="${r1(x + 64)}" y="370" width="40" height="14" fill="${c.floor2}"/>`;
+  }
+  return s;
+}
+
+// Pás vrstvy: { sky, layers: [{ speed, tiles: [svg…] | null, svg, defs }] }
+// layerIndex = index vrstvy (semínko), baseId = typ prostředí (clay, stone…)
+function sceneStrip(theme, baseId, layerIndex) {
+  const c = theme;
+  const gid = `glow-${layerIndex}`;
+  const wood = '#5a3a22';
+  const defs = `<radialGradient id="${gid}"><stop offset="0" stop-color="${c.crystal}" stop-opacity=".35"/><stop offset="1" stop-color="${c.crystal}" stop-opacity="0"/></radialGradient>
+    <radialGradient id="torch-glow"><stop offset="0" stop-color="#ffb347" stop-opacity=".45"/><stop offset="1" stop-color="#ffb347" stop-opacity="0"/></radialGradient>`;
+  const make = (fn, salt) => Array.from({ length: STRIP_TILES }, (_, i) => fn(rng(layerIndex * 1000 + salt * 100 + i + 1)));
+  return {
+    sky: `linear-gradient(180deg, ${c.sky[0]}, ${c.sky[1]})`,
+    defs,
+    layers: [
+      { speed: 0.15, tiles: make((R) => backTile(R, baseId, c, gid), 1) },
+      { speed: 0.35, tiles: make((R) => ceilingTile(R, baseId, c, wood), 2) },
+      { speed: 0.55, tiles: make((R) => midTile(R, baseId, c, gid, wood), 3) },
+      { speed: 0, svg: `<path d="M0 300 Q206 285 412 300 L412 400 L0 400 Z" fill="${c.floor}"/>` },
+      { speed: 1, tiles: make((R) => floorTile(R, baseId, c), 4) },
+    ],
+  };
+}
+
+return { TILE, STRIP_TILES, sceneStrip };
+})();
+
 // ===== js/ui/battleView.js =====
-const __m30_js_ui_battleView_js = (() => {
+const __m31_js_ui_battleView_js = (() => {
 const { getLayer } = __m5_js_core_layers_js;
-const { sceneLayers, monsterSvg } = __m18_js_ui_sprites_js;
+const { monsterSvg } = __m18_js_ui_sprites_js;
+const { sceneStrip, TILE, STRIP_TILES } = __m30_js_ui_scenery_js;
 // Živá scéna boje: paralaxa pozadí, chůze hrdiny, příchod příšer, pád poražených.
 // Jen zobrazení – čte state/battle z core, nic v nich nemění.
 
 
-const TILE = 412;          // šířka dlaždice pozadí (jednotky SVG)
+
 const WALK_SPEED = 95;     // posun podlahy při chůzi (jednotky SVG / s)
 
 const view = {
@@ -4271,17 +4441,31 @@ const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
 function buildScene(layerIdx) {
   const layer = getLayer(layerIdx);
-  const sc = sceneLayers(layer.theme, layer.id);
+  const sc = sceneStrip(layer.theme, layer.baseId, layerIdx);
   const scene = $('#scene');
   scene.style.background = sc.sky;
+  // Pohyblivá vrstva = pás STRIP_TILES různých dlaždic + kopie první na konci (plynulé opakování)
+  const n = STRIP_TILES + 1;
   scene.innerHTML = sc.layers.map((l) => {
-    const body = l.tile
-      ? `<g>${l.svg}</g><g transform="translate(${TILE} 0)">${l.svg}</g>`
-      : l.svg;
-    const w = l.tile ? TILE * 2 : TILE;
-    return `<div class="layer${l.tile ? ' tiled' : ''}"><svg viewBox="0 0 ${w} 400" aria-hidden="true">${l.defs ? `<defs>${l.defs}</defs>` : ''}${body}</svg></div>`;
-  }).join('');
-  view.layerEls = [...scene.querySelectorAll('.layer')].map((el, i) => ({ el, speed: sc.layers[i].speed, tile: sc.layers[i].tile }));
+    if (!l.tiles) return `<div class="layer"><svg viewBox="0 0 ${TILE} 400" aria-hidden="true">${l.svg}</svg></div>`;
+    const tiles = [...l.tiles, l.tiles[0]];
+    const body = tiles.map((t, i) => `<g transform="translate(${i * TILE} 0)">${t}</g>`).join('');
+    return `<div class="layer tiled" style="width:${n * 100}%"><svg viewBox="0 0 ${TILE * n} 400" aria-hidden="true"><defs>${sc.defs}</defs>${body}</svg></div>`;
+  }).join('') + motes(layer.theme.crystal, layer.baseId === 'lava');
+  view.layerEls = [...scene.querySelectorAll('.layer')].map((el, i) => ({ el, speed: sc.layers[i].speed, tile: !!sc.layers[i].tiles }));
+  // na začátku vrstvy náhodné místo v pásu, ať každá návštěva nezačíná stejně
+  view.scroll = Math.random() * TILE * STRIP_TILES;
+}
+
+// Poletující prach / jiskry (v lávě stoupající uhlíky)
+function motes(color, embers) {
+  let s = '';
+  for (let i = 0; i < 12; i++) {
+    const x = (i * 37 + 11) % 100, y = 15 + ((i * 53) % 60);
+    const dur = 6 + (i % 5) * 1.7, delay = -(i * 1.3);
+    s += `<i style="left:${x}%;top:${y}%;animation-duration:${dur}s;animation-delay:${delay}s;background:${embers ? '#ffb347' : color}"></i>`;
+  }
+  return `<div class="motes${embers ? ' embers' : ''}" aria-hidden="true">${s}</div>`;
 }
 
 // Poražená příšera: kopie siluety, která klesne a zmizí
@@ -4347,8 +4531,9 @@ function updateBattleView(state, battle, dt) {
 
   for (const l of view.layerEls) {
     if (!l.tile || !l.speed) continue;
-    const off = (view.scroll * l.speed) % TILE;
-    l.el.style.transform = `translateX(${(-off / (TILE * 2) * 100).toFixed(3)}%)`;
+    const loop = TILE * STRIP_TILES;
+    const off = (view.scroll * l.speed) % loop;
+    l.el.style.transform = `translateX(${(-off / (TILE * (STRIP_TILES + 1)) * 100).toFixed(3)}%)`;
   }
 }
 
@@ -4363,7 +4548,7 @@ return { updateBattleView, resetBattleView };
 })();
 
 // ===== js/ui/questsView.js =====
-const __m31_js_ui_questsView_js = (() => {
+const __m32_js_ui_questsView_js = (() => {
 const { LOGIN_REWARDS, QUEST_POOL } = __m2_js_config_js;
 const { tr, locale, plural } = __m1_js_i18n_js;
 const { formatNumber } = __m11_js_core_format_js;
@@ -4434,7 +4619,7 @@ return { questsHtml };
 })();
 
 // ===== js/ui/passView.js =====
-const __m32_js_ui_passView_js = (() => {
+const __m33_js_ui_passView_js = (() => {
 const { PASS } = __m2_js_config_js;
 const { tr, locale, plural } = __m1_js_i18n_js;
 const { formatNumber } = __m11_js_core_format_js;
@@ -4486,7 +4671,7 @@ return { passHtml };
 })();
 
 // ===== js/ui/slotView.js =====
-const __m33_js_ui_slotView_js = (() => {
+const __m34_js_ui_slotView_js = (() => {
 const { SLOTS, SLOT_UPGRADE, RUNE_POLISH } = __m2_js_config_js;
 const { tr, locale, plural } = __m1_js_i18n_js;
 const { formatNumber } = __m11_js_core_format_js;
@@ -4549,7 +4734,7 @@ return { slotHtml };
 })();
 
 // ===== js/ui/effects.js =====
-const __m34_js_ui_effects_js = (() => {
+const __m35_js_ui_effects_js = (() => {
 const { RARITIES } = __m2_js_config_js;
 const { ICON } = __m24_js_ui_icons_js;
 const { tr } = __m1_js_i18n_js;
@@ -4710,7 +4895,7 @@ return { vibrate, anvilStrike, sparks, rarityReveal, floatText, goldGain, coalGa
 })();
 
 // ===== js/ui/sound.js =====
-const __m35_js_ui_sound_js = (() => {
+const __m36_js_ui_sound_js = (() => {
 
 // Zvuky generované přes WebAudio – žádné soubory. Jen přehrávání, stav hry nemění.
 // Prohlížeč na mobilu pustí zvuk až po prvním dotyku – unlock() se volá při každém klepnutí.
@@ -4780,6 +4965,7 @@ function unlock() {
   src.buffer = c.createBuffer(1, 1, 22050);
   src.connect(c.destination);
   src.start(0);
+  startMusic();
 }
 
 function setSound(on, vol = volume) {
@@ -4791,6 +4977,7 @@ function setSound(on, vol = volume) {
     if (silentEl) { silentEl.pause(); silentEl.remove(); silentEl = null; }
   }
   if (master) master.gain.setTargetAtTime(enabled ? volume : 0, ctx.currentTime, 0.02);
+  applyMusicGain();
 }
 
 function ready(name, minGapMs = 0) {
@@ -4966,11 +5153,170 @@ function soundStatus() {
   return `${ctx.state} · ${ctx.sampleRate} Hz${navigator.audioSession ? ` · session ${navigator.audioSession.type}` : ''}${silentEl ? ' · keepalive' : ''}`;
 }
 
-return { unlock, setSound, anvil, reveal, heroHit, heroHurt, kill, coin, equip, smelt, levelUp, boss, layer, death, pickup, buy, tap, denied, soundStatus };
+// =====================================================================
+//  HUDBA – generovaná za běhu (žádné soubory). Klidná jeskynní smyčka:
+//  hluboký bordun, pomalé akordy, „kapky“ arpeggia a tiché kovadlinky.
+//  Každá vrstva má vlastní stupnici, tempo a barvu; boss přidá napětí.
+//  Hraje přes vlastní zesílení (hudba je tišší než zvuky).
+// =====================================================================
+
+// stupnice = půltóny od základního tónu, root = MIDI, bpm, wave = barva melodie
+const MUSIC_MOODS = {
+  clay:    { root: 50, scale: [0, 2, 3, 5, 7, 9, 10], bpm: 72, wave: 'triangle', prog: [0, 5, 3, 4] },  // D dórská
+  stone:   { root: 45, scale: [0, 2, 3, 5, 7, 8, 10], bpm: 66, wave: 'triangle', prog: [0, 3, 5, 4] },  // A moll
+  iron:    { root: 48, scale: [0, 1, 3, 5, 7, 8, 10], bpm: 80, wave: 'square',   prog: [0, 1, 0, 6] },  // C frygická
+  crystal: { root: 52, scale: [0, 2, 4, 6, 7, 9, 11], bpm: 70, wave: 'sine',     prog: [0, 3, 1, 4] },  // E lydická
+  lava:    { root: 43, scale: [0, 1, 4, 5, 7, 8, 10], bpm: 88, wave: 'sawtooth', prog: [0, 1, 5, 0] },  // G frygická dur
+  ruins:   { root: 47, scale: [0, 2, 3, 5, 7, 9, 10], bpm: 64, wave: 'triangle', prog: [0, 6, 5, 4] },  // H dórská
+  abyss:   { root: 41, scale: [0, 1, 3, 5, 6, 8, 10], bpm: 58, wave: 'sine',     prog: [0, 4, 1, 0] },  // F lokrická
+  heart:   { root: 46, scale: [0, 2, 4, 5, 7, 9, 10], bpm: 76, wave: 'triangle', prog: [0, 4, 5, 3] },  // B mixolydická
+};
+
+const music = {
+  on: true,
+  vol: 0.5,
+  gain: null,       // výstup hudby
+  pad: null,        // trvalé tóny borduna
+  timer: 0,
+  nextTime: 0,      // čas dalšího osminového kroku (ctx.currentTime)
+  step: 0,
+  mood: MUSIC_MOODS.clay,
+  moodId: 'clay',
+  boss: false,
+  seed: 1,
+};
+
+function mrand() { // jednoduchý opakovatelný náhodný generátor, ať melodie „dýchá“, ale není chaos
+  music.seed = (music.seed * 16807) % 2147483647;
+  return music.seed / 2147483647;
+}
+
+function musicOut() {
+  if (!ctx) return null;
+  if (!music.gain) {
+    music.gain = ctx.createGain();
+    music.gain.gain.value = 0;
+    // jemný dozvuk: dvě zpožděné kopie přes dolní propust (levnější než konvoluce)
+    const dry = ctx.createGain();
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
+    const d1 = ctx.createDelay(1); d1.delayTime.value = 0.27;
+    const fb = ctx.createGain(); fb.gain.value = 0.32;
+    const wet = ctx.createGain(); wet.gain.value = 0.35;
+    dry.connect(music.gain);
+    dry.connect(d1); d1.connect(lp); lp.connect(fb); fb.connect(d1); lp.connect(wet); wet.connect(music.gain);
+    music.gain.connect(master);
+    music.in = dry;
+  }
+  return music.in;
+}
+
+function musicLevel() {
+  return enabled && music.on ? music.vol * 0.55 : 0;
+}
+
+function mNote(out, { f, type = 'triangle', vol = 0.1, t, attack = 0.01, dur = 0.5, cutoff = 0 }) {
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = type;
+  o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  if (cutoff) {
+    const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = cutoff;
+    o.connect(fl).connect(g);
+  } else o.connect(g);
+  g.connect(out);
+  o.start(t);
+  o.stop(t + dur + 0.05);
+}
+
+function degree(mood, d, oct = 0) { // stupeň stupnice → MIDI
+  const s = mood.scale;
+  const i = ((d % s.length) + s.length) % s.length;
+  return mood.root + s[i] + 12 * (oct + Math.floor(d / s.length));
+}
+
+// Jeden krok (osmina). 32 kroků = 4 takty = jeden akord z `prog` na takt.
+function musicStep(t) {
+  const out = musicOut();
+  const m = music.mood;
+  const beat = 60 / m.bpm / 2; // délka osminy
+  const s = music.step % 64;
+  const bar = Math.floor(s / 8) % 4;
+  const chord = m.prog[bar];
+  const inBar = s % 8;
+
+  // bordun / bas na začátku taktu
+  if (inBar === 0) {
+    mNote(out, { f: NOTE(degree(m, chord, -1)), type: 'sine', vol: 0.16, t, attack: 0.3, dur: beat * 8.5 });
+    // měkký akord (pad)
+    [0, 2, 4].forEach((k, i) => mNote(out, {
+      f: NOTE(degree(m, chord + k, 0)), type: m.wave === 'sine' ? 'sine' : 'triangle',
+      vol: 0.035, t: t + i * 0.02, attack: 0.6, dur: beat * 8, cutoff: 900,
+    }));
+  }
+  // basový puls v souboji s bossem
+  if (music.boss && inBar % 2 === 0) {
+    mNote(out, { f: NOTE(degree(m, chord, -2)), type: 'sawtooth', vol: 0.06, t, attack: 0.01, dur: beat * 0.9, cutoff: 300 });
+  }
+  // „kapky“ – arpeggio s pauzami (hustší u bosse)
+  const density = music.boss ? 0.7 : 0.42;
+  if (mrand() < density && !(inBar === 0 && s % 32 === 0)) {
+    const pool = [0, 2, 4, 7, 9];
+    const d = chord + pool[Math.floor(mrand() * pool.length)];
+    const oct = mrand() < 0.25 ? 2 : 1;
+    mNote(out, { f: NOTE(degree(m, d, oct)), type: m.wave, vol: m.wave === 'square' || m.wave === 'sawtooth' ? 0.025 : 0.06,
+      t, attack: 0.005, dur: beat * (1.5 + mrand() * 2), cutoff: m.wave === 'sawtooth' ? 1600 : 0 });
+  }
+  // tichá kovadlinka na 2. a 4. dobu každý druhý takt (kovárna v dálce)
+  if ((inBar === 2 || inBar === 6) && bar % 2 === 1) {
+    [1, 2.76].forEach((mul, i) => mNote(out, { f: 1250 * mul, type: 'sine', vol: 0.012 / (i + 1), t, attack: 0.002, dur: 0.35 }));
+  }
+}
+
+function musicTick() {
+  if (!ctx || ctx.state !== 'running' || !musicLevel()) return;
+  const beat = 60 / music.mood.bpm / 2;
+  if (music.nextTime < ctx.currentTime) music.nextTime = ctx.currentTime + 0.05;
+  while (music.nextTime < ctx.currentTime + 0.25) {
+    musicStep(music.nextTime);
+    music.nextTime += beat;
+    music.step++;
+  }
+}
+
+function applyMusicGain() {
+  if (!ctx || !music.gain) return;
+  music.gain.gain.setTargetAtTime(musicLevel(), ctx.currentTime, 0.6);
+}
+
+// Spouští se z unlock() – až po dotyku, ať iPhone hudbu neztlumí
+function startMusic() {
+  if (!ctx) return;
+  musicOut();
+  applyMusicGain();
+  if (!music.timer) music.timer = setInterval(musicTick, 100);
+}
+
+function setMusic(on, vol = music.vol) {
+  music.on = on;
+  music.vol = vol;
+  applyMusicGain();
+}
+
+// Nálada podle vrstvy (baseId z getLayer) a souboje s bossem
+function musicMood(layerBaseId, boss = false) {
+  const mood = MUSIC_MOODS[layerBaseId] ?? MUSIC_MOODS.clay;
+  if (mood !== music.mood) { music.mood = mood; music.step = 0; }
+  music.boss = boss;
+}
+
+return { unlock, setSound, anvil, reveal, heroHit, heroHurt, kill, coin, equip, smelt, levelUp, boss, layer, death, pickup, buy, tap, denied, soundStatus, setMusic, musicMood };
 })();
 
 // ===== js/main.js =====
-const __m36_js_main_js = (() => {
+const __m37_js_main_js = (() => {
 const { SAVE } = __m2_js_config_js;
 const { tr, setLang, getLang, locale } = __m1_js_i18n_js;
 const { itemName } = __m4_js_core_items_js;
@@ -4983,30 +5329,30 @@ const { forgeItem, equipPending, smeltPending, upgradeForge, isForgeXpFull, forg
 const { tickCoal, canAffordForge, spendForgeCoal, secondsToNextCoal, rollCoalDrop } = __m13_js_core_coal_js;
 const { rewardText } = __m27_js_ui_itemView_js;
 const { ICON } = __m24_js_ui_icons_js;
-const { updateBattleView, resetBattleView } = __m30_js_ui_battleView_js;
+const { updateBattleView, resetBattleView } = __m31_js_ui_battleView_js;
 const { renderTab, merchantSel } = __m25_js_ui_tabs_js;
 const { buyCoalPack, buyChest } = __m23_js_core_shop_js;
 const { rollMaterialDrop } = __m19_js_core_loot_js;
 const { simulateOffline } = __m20_js_core_offline_js;
 const { unlockCompanion, upgradeCompanion } = __m17_js_core_companions_js;
 const { refreshQuests, track, claimQuest, claimDailyBonus, claimLogin, firstBossReward, claimableCount } = __m14_js_core_quests_js;
-const { questsHtml } = __m31_js_ui_questsView_js;
+const { questsHtml } = __m32_js_ui_questsView_js;
 const { ingredientsHtml } = __m26_js_ui_ingredientsView_js;
 const { ingredientModifiers, consumeIngredients, putIngredient, clearSocket, missingIngredients } = __m15_js_core_ingredients_js;
 const { doPrestige, buyRuneUpgrade, runDepth, runesForDepth } = __m16_js_core_prestige_js;
 const { SHOP, PASS, PREMIUM } = __m2_js_config_js;
 const { refillCoal, buySpeed, buyInstant, buyDiamondChest, buyAutoForge, useCosmetic } = __m21_js_core_premium_js;
 const { refreshPass, addPassXp, claimPass, buyPremiumPass } = __m22_js_core_pass_js;
-const { passHtml } = __m32_js_ui_passView_js;
+const { passHtml } = __m33_js_ui_passView_js;
 const { getBonuses } = __m7_js_core_bonuses_js;
 const { compareItems } = __m4_js_core_items_js;
 const { canMergePending, forgeUpgradeOre } = __m10_js_core_forge_js;
 const { upgradeSlot, polishSlot } = __m8_js_core_slots_js;
-const { slotHtml } = __m33_js_ui_slotView_js;
+const { slotHtml } = __m34_js_ui_slotView_js;
 const { SLOTS } = __m2_js_config_js;
 const { buyMaterialPack, buyOrePack, swapMaterial, sellForOre } = __m23_js_core_shop_js;
-const fx = __m34_js_ui_effects_js;
-const sfx = __m35_js_ui_sound_js;
+const fx = __m35_js_ui_effects_js;
+const sfx = __m36_js_ui_sound_js;
 // Vstupní bod hry: načte stav, napojí ovládání, spustí smyčku a autosave.
 
 
@@ -5472,6 +5818,12 @@ function bindUi() {
     sfx.tap();
     saveState(state);
   });
+  document.getElementById('btn-music').addEventListener('click', () => {
+    state.settings.music = !state.settings.music;
+    applySound();
+    sfx.tap();
+    saveState(state);
+  });
   document.getElementById('vol').addEventListener('input', (e) => {
     state.settings.volume = Number(e.target.value) / 100;
     applySound();
@@ -5493,7 +5845,12 @@ function bindUi() {
 
 function applySound() {
   const { sound, volume } = state.settings;
+  const music = state.settings.music !== false;
   sfx.setSound(sound, volume);
+  sfx.setMusic(music);
+  const mb = document.getElementById('btn-music');
+  mb.setAttribute('aria-pressed', String(music));
+  mb.classList.toggle('on', music);
   const btn = document.getElementById('btn-sound');
   btn.setAttribute('aria-pressed', String(sound));
   btn.classList.toggle('on', sound);
@@ -5528,6 +5885,7 @@ function update(dt) {
   dt *= getBonuses(state).speed; // zrychlení boje za diamanty
   const events = updateCombat(state, battle, dt);
   updateBattleView(state, battle, dt);
+  sfx.musicMood(getLayer(state.progress.layer).baseId, !!battle.monster?.isBoss);
   let needFull = false;
   for (const e of events) {
     switch (e.type) {
