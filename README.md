@@ -1,6 +1,6 @@
 # Hlubinná kovárna (Deep Forge)
 
-Mobile idle game – a dwarf smith forges random gear while his hero fights deeper and deeper under the mountain.
+Mobile idle game – a dwarf smith forges random gear while the hero fights deeper and deeper under the mountain.
 
 **Play:** https://baronisko.github.io/kovarna/
 
