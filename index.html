@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="build" content="2026-11-04 23:24">
+  <meta name="build" content="2026-11-04 23:42">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0e1a22">
   <meta name="mobile-web-app-capable" content="yes">
@@ -572,6 +572,30 @@ body { display: flex; justify-content: center; }
 .lang-switch button { padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; color: var(--muted); }
 .lang-switch button.on { background: var(--accent); color: #fff; }
 
+/* Kobky */
+.dg { display: flex; gap: 10px; align-items: stretch; }
+.dg.locked { opacity: .55; }
+.dg-art { width: 78px; flex: none; border-radius: 12px; display: grid; place-items: center; overflow: hidden; }
+.dg-art svg { width: 70px; height: 56px; }
+.dg-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dg-head { display: flex; align-items: center; justify-content: space-between; }
+.dg-head b { font-size: 15px; font-weight: 800; }
+.dg-keys { display: inline-flex; align-items: center; gap: 3px; font-weight: 900; }
+.dg-keys svg, .dg-stats svg { width: 14px; height: 14px; vertical-align: -2px; }
+.dg-ok { color: var(--accent); font-weight: 800; }
+.dg-hard { color: var(--danger); font-weight: 800; }
+.dg-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.buy.ghost { background: var(--chip); box-shadow: 0 4px 0 #142430; color: var(--text); }
+#battle.in-dungeon #waves, #battle.in-dungeon #event-pill { display: none; }
+#dg-timer { display: none; margin-top: 7px; font-weight: 900; font-size: 14px; }
+#battle.in-dungeon #dg-timer { display: block; }
+#dg-timer.low { color: var(--danger); }
+.dg-stats { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.dg-stats svg { display: inline-block; }
+.dg-reward { justify-content: center; margin: 6px 0; }
+.dg-reward .rw { font-size: 16px; }
+.dg-reward .rw svg { width: 20px; height: 20px; }
+
 </style>
 </head>
 <body>
@@ -582,6 +606,7 @@ body { display: flex; justify-content: center; }
       <div class="res" id="res-coal"><span class="res-icon"></span><span class="res-val">0</span><span class="res-timer"></span></div>
       <div class="res" id="res-diamonds"><span class="res-icon"></span><span class="res-val">0</span></div>
       <div class="spacer"></div>
+      <button id="btn-dungeons" class="icon-btn" aria-label="Kobky" data-i18n-aria="Kobky"><span class="badge hidden"></span></button>
       <button id="btn-quests" class="icon-btn" aria-label="Úkoly" data-i18n-aria="Úkoly"><span class="badge hidden"></span></button>
       <button id="btn-menu" class="icon-btn" aria-label="Nastavení" data-i18n-aria="Nastavení"></button>
     </header>
@@ -593,6 +618,7 @@ body { display: flex; justify-content: center; }
         <div id="depth-label"></div>
         <div id="waves"></div>
         <div id="event-pill" class="hidden"></div>
+        <div id="dg-timer"></div>
       </div>
       <div class="fighter" id="hero">
         <div class="hp-bar"><div class="hp-fill"></div></div>
@@ -723,6 +749,14 @@ body { display: flex; justify-content: center; }
     <div class="panel tall">
       <div class="panel-head"><h2 data-i18n="Kovářský průkaz">Kovářský průkaz</h2><button class="icon-btn" id="btn-close-pass" aria-label="Zavřít" data-i18n-aria="Zavřít">&times;</button></div>
       <div id="pass-body" class="panel-scroll"></div>
+    </div>
+  </div>
+
+  <!-- Kobky -->
+  <div id="dungeons" class="overlay hidden">
+    <div class="panel tall">
+      <div class="panel-head"><h2 data-i18n="Kobky">Kobky</h2><button class="icon-btn" id="btn-close-dungeons" aria-label="Zavřít" data-i18n-aria="Zavřít">&times;</button></div>
+      <div id="dungeons-body" class="panel-scroll"></div>
     </div>
   </div>
 
@@ -901,6 +935,15 @@ const EN = {
   'Zatím žádná legendárka.': 'No legendaries yet.', 'Každý ukovaný kus Legendární nebo Mýtické vzácnosti se sem zapíše – i když ho přetavíš.': 'Every Legendary or Mythic item you forge is recorded here – even if you smelt it.',
   'Nejsilnější podle slotu': 'Strongest per slot', 'Sbírka': 'Collection',
   'Vyzkoušet zvuk': 'Test sound', 'verze': 'version',
+  // Kobky
+  'Kobky': 'Dungeons', 'Zlatá štola': 'Golden Adit', 'Zlatý golem': 'Golden Golem', 'Odměna: zlato': 'Reward: gold',
+  'Rudný důl': 'Ore Mine', 'Důlní obr': 'Mine Giant', 'Odměna: ruda a uhlí': 'Reward: ore and coal',
+  'Krystalová sluj': 'Crystal Grotto', 'Krystalový pavouk': 'Crystal Spider', 'Odměna: diamanty a suroviny hlubin': 'Reward: diamonds and deep materials',
+  'Vítězství!': 'Victory!', 'odemčena úroveň {v}': 'level {v} unlocked', 'Čas vypršel': 'Time is up', 'Porážka': 'Defeat',
+  'Klíč ti zůstal. Vylepši vybavení (kování, sloty, runy) a zkus to znovu.': 'You keep your key. Improve your gear (forging, slots, runes) and try again.',
+  'Zpět do hlubin': 'Back to the depths', '{v}× surovina hlubin': '{v}× deep material', 'Odemkne se ve vrstvě {v}': 'Unlocks at layer {v}',
+  'Zvládneš': 'Doable', 'Těžké': 'Hard', 'Bojovat': 'Fight', 'Rychle vyčistit úr. {v}': 'Quick clear lv. {v}', 'limit {v} s': '{v} s limit',
+  'Poraz bosse kobky a odemkne se další, silnější úroveň s větší odměnou. Výhra stojí 1 klíč, prohra nic. Klíče se každý den doplní na {v}. Rychlé vyčištění dá odměnu nejvyšší poražené úrovně bez boje.': 'Defeat the dungeon boss to unlock the next, stronger level with a bigger reward. A win costs 1 key, a loss costs nothing. Keys refill to {v} every day. Quick clear gives the reward of your highest beaten level without a fight.',
 };
 
 return { EN };
@@ -1143,6 +1186,35 @@ const COMBAT = {
   respawnDelay: 2.0,           // pauza po smrti hrdiny (s)
   // Hrdina se na začátku každé vlny plně vyléčí. Smrt = vlna zpět (ne pod 1. vlnu vrstvy).
 };
+
+// ---------------------------------------------------------------------
+//  Kobky – souboj s bossem po úrovních. Vstup za klíč (výhra klíč spotřebuje,
+//  prohra ne). Odměna = suroviny podle úrovně (ne staty). Boss má časový limit.
+//  Úroveň N odpovídá síle příšer v hloubce depthStart + depthPerLevel × (N-1).
+// ---------------------------------------------------------------------
+const DUNGEON = {
+  keysPerDay: 2,          // každý den se klíče každé kobky doplní na tuto hodnotu
+  keyCost: 25,            // diamanty za klíč navíc (pohodlí, síla se nekupuje)
+  timeLimit: 30,          // sekundy na poražení bosse
+  depthStart: 4,
+  depthPerLevel: 3,
+  hpMult: 7,              // × HP běžné příšery v dané hloubce
+  attackMult: 1.4,
+  enterDelay: 1.2,
+};
+
+// theme = index vrstvy, jejíž prostředí kobka používá
+const DUNGEONS = [
+  { id: 'gold', get name() { return tr('Zlatá štola'); }, get boss() { return tr('Zlatý golem'); }, shape: 'golem', themeLayer: 7, unlockLayer: 0,
+    get desc() { return tr('Odměna: zlato'); },
+    reward: (lv) => ({ gold: Math.round(COMBAT.goldBase * Math.pow(COMBAT.goldGrowth, DUNGEON.depthStart + DUNGEON.depthPerLevel * (lv - 1)) * (60 + 6 * lv)) }) },
+  { id: 'ore', get name() { return tr('Rudný důl'); }, get boss() { return tr('Důlní obr'); }, shape: 'humanoid-horns', themeLayer: 2, unlockLayer: 1,
+    get desc() { return tr('Odměna: ruda a uhlí'); },
+    reward: (lv) => ({ ore: Math.round(15 * Math.pow(1.18, lv - 1) + 5 * lv), coal: 4 + Math.floor(lv / 2) }) },
+  { id: 'crystal', get name() { return tr('Krystalová sluj'); }, get boss() { return tr('Krystalový pavouk'); }, shape: 'spider', themeLayer: 3, unlockLayer: 2,
+    get desc() { return tr('Odměna: diamanty a suroviny hlubin'); },
+    reward: (lv) => ({ diamonds: 6 + 2 * lv, mats: 2 + lv }) },
+];
 
 // ---------------------------------------------------------------------
 //  Uhlí – omezuje kování. 1 uhlí za kování, dobíjí se samo i offline.
@@ -1389,7 +1461,7 @@ const MERCHANT = {
   oreRate: 4,                // 1 kus suroviny hlubin → 4 rudy
 };
 
-return { SAVE, RARITIES, SLOTS, STATS, ITEMS, ITEM_NAMES, HERO, CURRENCIES, MATERIALS, FORGE, DEPTH, LAYERS, COMBAT, COAL, WEAPON_SHAPES, MATERIAL_DROP, SHOP, LEGENDS, OFFLINE, PRESTIGE, RUNE_UPGRADES, QUEST_POOL, LOGIN_REWARDS, DIAMONDS, INGREDIENTS, MERGE, COMPANIONS, COMPANION_COST, EVENTS, PREMIUM, COSMETICS, PASS, SLOT_UPGRADE, RUNE_POLISH, MERCHANT };
+return { SAVE, RARITIES, SLOTS, STATS, ITEMS, ITEM_NAMES, HERO, CURRENCIES, MATERIALS, FORGE, DEPTH, LAYERS, COMBAT, DUNGEON, DUNGEONS, COAL, WEAPON_SHAPES, MATERIAL_DROP, SHOP, LEGENDS, OFFLINE, PRESTIGE, RUNE_UPGRADES, QUEST_POOL, LOGIN_REWARDS, DIAMONDS, INGREDIENTS, MERGE, COMPANIONS, COMPANION_COST, EVENTS, PREMIUM, COSMETICS, PASS, SLOT_UPGRADE, RUNE_POLISH, MERCHANT };
 })();
 
 // ===== js/core/rng.js =====
@@ -1688,6 +1760,7 @@ function createNewState() {
     records: { bossesBeaten: [] }, // vrstvy, jejichž bosse hráč už někdy porazil (diamanty jen poprvé)
     // znovuzrození: runy předků a trvalá vylepšení (přežijí zapečetění kovárny)
     prestige: { runes: 0, totalRunes: 0, count: 0, bestDepth: 0, upgrades: {} },
+    dungeons: { dayKey: '', keys: {}, levels: {} }, // kobky: klíče a nejvyšší poražená úroveň
     legends: [], // sbírka: každá ukovaná legendárka/mýtická (i přetavená)
   };
 }
@@ -3313,6 +3386,7 @@ const __m24_js_ui_icons_js = (() => {
 // Malé ploché ikony UI (místo emoji). Vrací řetězce SVG.
 
 const ICON = {
+  key: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="4.5" fill="none" stroke="#f2c14e" stroke-width="2.6"/><path d="M12.5 12 H21 M18 12 V16 M21 12 V15" stroke="#f2c14e" stroke-width="2.6" stroke-linecap="round"/></svg>`,
   diamond: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3 H17 L22 9 L12 21 L2 9 Z" fill="#5ec8ff"/><path d="M2 9 H22 M7 3 L10 9 L12 21 M17 3 L14 9 L12 21" stroke="#2a7fc0" stroke-width="1.2" fill="none"/><path d="M7 3 L10 9 H2 Z M17 3 L14 9 H22 Z" fill="#a6e4ff"/></svg>`,
   quests: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M8.5 9 L10.5 11 L15 7 M8.5 16 H15.5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   gold: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#f2c14e"/><circle cx="12" cy="12" r="5.5" fill="none" stroke="#b8871f" stroke-width="2"/></svg>`,
@@ -3911,8 +3985,188 @@ addBonusProvider((state, b, nowMs) => {
 return { activeEvent, eventEnds };
 })();
 
+// ===== js/core/dungeon.js =====
+const __m29_js_core_dungeon_js = (() => {
+const { COMBAT, DUNGEON, DUNGEONS, LAYERS } = __m2_js_config_js;
+const { getHeroStats } = __m9_js_core_hero_js;
+const { getLayer } = __m5_js_core_layers_js;
+const { dayKey } = __m14_js_core_quests_js;
+const { pick } = __m3_js_core_rng_js;
+// Kobky: souboj s bossem po úrovních za klíče. Odměna podle úrovně (suroviny, ne staty).
+// Stav v state.dungeons: { dayKey, keys: {id: n}, levels: {id: nejvyšší poražená úroveň} }.
+// Průběh souboje (fight) se neukládá. Žádné DOM.
+
+
+
+
+
+function dungeonDef(id) {
+  return DUNGEONS.find((d) => d.id === id);
+}
+
+function ds(state) {
+  if (!state.dungeons) state.dungeons = { dayKey: '', keys: {}, levels: {} };
+  return state.dungeons;
+}
+
+// Denní doplnění klíčů (jen nahoru – klíče navíc se neztratí)
+function refreshKeys(state, now = new Date()) {
+  const d = ds(state);
+  const dk = dayKey(now);
+  if (d.dayKey === dk) return false;
+  d.dayKey = dk;
+  for (const dg of DUNGEONS) d.keys[dg.id] = Math.max(d.keys[dg.id] ?? 0, DUNGEON.keysPerDay);
+  return true;
+}
+
+function keys(state, id) { return ds(state).keys[id] ?? 0; }
+function bestLevel(state, id) { return ds(state).levels[id] ?? 0; }
+function totalKeys(state) { return DUNGEONS.reduce((s, d) => s + (isUnlocked(state, d) ? keys(state, d.id) : 0), 0); }
+
+function isUnlocked(state, dg) {
+  return state.progress.maxLayer >= dg.unlockLayer;
+}
+
+function buyKey(state, id) {
+  if (state.diamonds < DUNGEON.keyCost) return false;
+  state.diamonds -= DUNGEON.keyCost;
+  ds(state).keys[id] = keys(state, id) + 1;
+  return true;
+}
+
+// Odměna za úroveň: { gold, ore, coal, diamonds, mats } (chybějící = 0)
+function levelReward(id, lv) {
+  return { gold: 0, ore: 0, coal: 0, diamonds: 0, mats: 0, ...dungeonDef(id).reward(lv) };
+}
+
+function bossFor(id, lv) {
+  const dg = dungeonDef(id);
+  const d = DUNGEON.depthStart + DUNGEON.depthPerLevel * (lv - 1);
+  const hp = Math.round(COMBAT.monsterBaseHp * Math.pow(COMBAT.monsterHpGrowth, d - 1) * DUNGEON.hpMult);
+  const attack = Math.round(COMBAT.monsterBaseAttack * Math.pow(COMBAT.monsterAttackGrowth, d - 1) * DUNGEON.attackMult);
+  return { name: dg.boss, shape: dg.shape, isBoss: true, hp, maxHp: hp, attack, gold: 0 };
+}
+
+// Síla bosse pro zobrazení (HP a útok), ať hráč ví, do čeho jde
+function bossPreview(id, lv) {
+  const b = bossFor(id, lv);
+  return { hp: b.maxHp, attack: b.attack };
+}
+
+// Začít souboj s další (neporaženou) úrovní. Vrací objekt souboje, nebo null.
+function startDungeon(state, id) {
+  const dg = dungeonDef(id);
+  if (!dg || !isUnlocked(state, dg) || keys(state, id) < 1) return null;
+  const lv = bestLevel(state, id) + 1;
+  const hero = getHeroStats(state);
+  return {
+    dungeon: id,
+    level: lv,
+    heroHp: hero.hp,
+    heroMax: hero.hp,
+    heroTimer: 0,
+    monster: bossFor(id, lv),
+    monsterTimer: 0,
+    monsterIndex: 0,
+    timeLeft: DUNGEON.timeLimit,
+    phase: 'next',
+    phaseTimer: DUNGEON.enterDelay,
+    phaseDuration: DUNGEON.enterDelay,
+    result: null, // 'win' | 'lose'
+  };
+}
+
+// Rychlé vyčištění: odměna nejvyšší poražené úrovně za klíč, bez boje
+function sweepDungeon(state, id) {
+  const lv = bestLevel(state, id);
+  if (lv < 1 || keys(state, id) < 1) return null;
+  ds(state).keys[id]--;
+  return grantDungeon(state, id, lv);
+}
+
+// Připíše odměnu. Suroviny hlubin: náhodně z vrstev, kam hráč už došel.
+function grantDungeon(state, id, lv) {
+  const r = levelReward(id, lv);
+  state.gold += r.gold;
+  state.materials.ore = (state.materials.ore ?? 0) + r.ore;
+  state.coal.amount += r.coal;
+  state.diamonds += r.diamonds;
+  state.stats.diamondsEarned = (state.stats.diamondsEarned ?? 0) + r.diamonds;
+  const got = {};
+  const known = LAYERS.slice(0, Math.min(LAYERS.length, state.progress.maxLayer + 1));
+  for (let i = 0; i < r.mats; i++) {
+    const m = pick(known).material.id;
+    got[m] = (got[m] ?? 0) + 1;
+    state.materials[m] = (state.materials[m] ?? 0) + 1;
+  }
+  return { ...r, matsGot: got, level: lv, dungeon: id };
+}
+
+/**
+ * Posune souboj v kobce. Události jako u hlavního boje:
+ *  heroHit, monsterHit, dodge, plus { type: 'dungeonEnd', win, reward }.
+ */
+function updateDungeon(state, f, dt) {
+  const events = [];
+  if (f.result) return events;
+  if (f.phase === 'next') {
+    f.phaseTimer -= dt;
+    if (f.phaseTimer <= 0) { f.phase = 'fight'; f.heroTimer = 0; f.monsterTimer = 0; }
+    return events;
+  }
+  const hero = getHeroStats(state);
+  const m = f.monster;
+  f.timeLeft = Math.max(0, f.timeLeft - dt);
+
+  if (hero.regen > 0) f.heroHp = Math.min(f.heroMax, f.heroHp + f.heroMax * hero.regen * dt);
+
+  f.heroTimer += dt;
+  if (f.heroTimer >= hero.attackInterval) {
+    f.heroTimer -= hero.attackInterval;
+    const crit = Math.random() < hero.critChance;
+    const dmg = Math.round(hero.attack * (crit ? hero.critMult : 1) * hero.bossMult);
+    m.hp = Math.max(0, m.hp - dmg);
+    if (hero.lifesteal > 0) f.heroHp = Math.min(f.heroMax, f.heroHp + dmg * hero.lifesteal);
+    events.push({ type: 'heroHit', dmg, crit });
+  }
+
+  if (m.hp <= 0) {
+    f.result = 'win';
+    ds(state).keys[f.dungeon]--;
+    ds(state).levels[f.dungeon] = f.level;
+    const reward = grantDungeon(state, f.dungeon, f.level);
+    events.push({ type: 'dungeonEnd', win: true, reward });
+    return events;
+  }
+
+  f.monsterTimer += dt;
+  if (f.monsterTimer >= COMBAT.monsterAttackInterval) {
+    f.monsterTimer -= COMBAT.monsterAttackInterval;
+    if (Math.random() < hero.dodge) events.push({ type: 'dodge' });
+    else {
+      const taken = Math.max(1, Math.round(m.attack * (1 - hero.resist)));
+      f.heroHp = Math.max(0, f.heroHp - taken);
+      events.push({ type: 'monsterHit', dmg: taken });
+    }
+  }
+
+  if (f.heroHp <= 0 || f.timeLeft <= 0) {
+    f.result = 'lose';
+    events.push({ type: 'dungeonEnd', win: false, timeout: f.heroHp > 0 });
+  }
+  return events;
+}
+
+// Prostředí kobky pro scénu
+function dungeonLayer(id) {
+  return getLayer(dungeonDef(id).themeLayer);
+}
+
+return { dungeonDef, refreshKeys, keys, bestLevel, totalKeys, isUnlocked, buyKey, levelReward, bossPreview, startDungeon, sweepDungeon, updateDungeon, dungeonLayer };
+})();
+
 // ===== js/ui/render.js =====
-const __m29_js_ui_render_js = (() => {
+const __m30_js_ui_render_js = (() => {
 const { SLOTS, DEPTH, RARITIES, FORGE, COAL } = __m2_js_config_js;
 const { getLayer } = __m5_js_core_layers_js;
 const { tr } = __m1_js_i18n_js;
@@ -3934,7 +4188,9 @@ const { activeEvent, eventEnds } = __m28_js_core_events_js;
 const { companionLevel } = __m17_js_core_companions_js;
 const { cosmeticColors } = __m21_js_core_premium_js;
 const { ICON, NAV_ICONS, ANVIL } = __m24_js_ui_icons_js;
+const { totalKeys } = __m29_js_core_dungeon_js;
 // Vykreslení stavu hry do DOM. Jen čte stav, nic v něm nemění.
+
 
 
 
@@ -3966,6 +4222,7 @@ function buildStatic() {
   $('#res-gold .res-icon').innerHTML = ICON.gold;
   $('#res-diamonds .res-icon').innerHTML = ICON.diamond;
   $('#btn-quests').insertAdjacentHTML('afterbegin', ICON.quests);
+  $('#btn-dungeons').insertAdjacentHTML('afterbegin', ICON.key);
   $('#res-coal .res-icon').innerHTML = ICON.coal;
   $('#btn-menu').innerHTML = ICON.menu;
   $('#anvil .anvil-art').innerHTML = ANVIL;
@@ -3988,6 +4245,10 @@ function renderHud(state) {
   const badge = $('#btn-quests .badge');
   badge.textContent = String(n);
   badge.classList.toggle('hidden', n === 0);
+  const k = totalKeys(state);
+  const kb = $('#btn-dungeons .badge');
+  kb.textContent = String(k);
+  kb.classList.toggle('hidden', k === 0);
   renderCoal(state);
 }
 
@@ -4221,7 +4482,7 @@ return { buildStatic, renderCoal, renderBattle, animateAttack, renderPendingItem
 })();
 
 // ===== js/ui/scenery.js =====
-const __m30_js_ui_scenery_js = (() => {
+const __m31_js_ui_scenery_js = (() => {
 
 // Pozadí jeskyně – proměnlivé: každá vrstva pozadí je pás několika RŮZNÝCH dlaždic
 // (krápníky, skály, krystaly, pochodně, rekvizity podle prostředí), takže se při chůzi
@@ -4416,12 +4677,14 @@ return { TILE, STRIP_TILES, sceneStrip };
 })();
 
 // ===== js/ui/battleView.js =====
-const __m31_js_ui_battleView_js = (() => {
+const __m32_js_ui_battleView_js = (() => {
 const { getLayer } = __m5_js_core_layers_js;
+const { dungeonDef } = __m29_js_core_dungeon_js;
 const { monsterSvg } = __m18_js_ui_sprites_js;
-const { sceneStrip, TILE, STRIP_TILES } = __m30_js_ui_scenery_js;
+const { sceneStrip, TILE, STRIP_TILES } = __m31_js_ui_scenery_js;
 // Živá scéna boje: paralaxa pozadí, chůze hrdiny, příchod příšer, pád poražených.
 // Jen zobrazení – čte state/battle z core, nic v nich nemění.
+
 
 
 
@@ -4490,7 +4753,7 @@ function setMonster(state, m) {
   const had = view.monster;
   if (had && had.hp <= 0) spawnCorpse();
   view.monster = m;
-  const layer = getLayer(state.progress.layer);
+  const layer = getLayer(view.layerIdx);
   $('#monster-svg').innerHTML = monsterSvg(m.shape, layer.theme);
   const el = $('#monster');
   el.classList.toggle('boss', m.isBoss);
@@ -4498,9 +4761,13 @@ function setMonster(state, m) {
 }
 
 function updateBattleView(state, battle, dt) {
-  if (view.layer !== state.progress.layer) {
-    view.layer = state.progress.layer;
-    buildScene(view.layer);
+  // V kobce se kreslí její prostředí, jinak aktuální vrstva
+  const layerIdx = battle.dungeon ? dungeonDef(battle.dungeon).themeLayer : state.progress.layer;
+  const key = battle.dungeon ? `d-${battle.dungeon}` : layerIdx;
+  if (view.layer !== key) {
+    view.layer = key;
+    view.layerIdx = layerIdx;
+    buildScene(layerIdx);
     view.monster = null;
   }
   if (view.monster !== battle.monster) setMonster(state, battle.monster);
@@ -4548,7 +4815,7 @@ return { updateBattleView, resetBattleView };
 })();
 
 // ===== js/ui/questsView.js =====
-const __m32_js_ui_questsView_js = (() => {
+const __m33_js_ui_questsView_js = (() => {
 const { LOGIN_REWARDS, QUEST_POOL } = __m2_js_config_js;
 const { tr, locale, plural } = __m1_js_i18n_js;
 const { formatNumber } = __m11_js_core_format_js;
@@ -4619,7 +4886,7 @@ return { questsHtml };
 })();
 
 // ===== js/ui/passView.js =====
-const __m33_js_ui_passView_js = (() => {
+const __m34_js_ui_passView_js = (() => {
 const { PASS } = __m2_js_config_js;
 const { tr, locale, plural } = __m1_js_i18n_js;
 const { formatNumber } = __m11_js_core_format_js;
@@ -4671,7 +4938,7 @@ return { passHtml };
 })();
 
 // ===== js/ui/slotView.js =====
-const __m34_js_ui_slotView_js = (() => {
+const __m35_js_ui_slotView_js = (() => {
 const { SLOTS, SLOT_UPGRADE, RUNE_POLISH } = __m2_js_config_js;
 const { tr, locale, plural } = __m1_js_i18n_js;
 const { formatNumber } = __m11_js_core_format_js;
@@ -4733,8 +5000,76 @@ function slotHtml(state, slotId) {
 return { slotHtml };
 })();
 
+// ===== js/ui/dungeonView.js =====
+const __m36_js_ui_dungeonView_js = (() => {
+const { DUNGEON, DUNGEONS, LAYERS } = __m2_js_config_js;
+const { tr } = __m1_js_i18n_js;
+const { formatNumber } = __m11_js_core_format_js;
+const { getHeroStats } = __m9_js_core_hero_js;
+const { keys, bestLevel, isUnlocked, levelReward, bossPreview, dungeonLayer } = __m29_js_core_dungeon_js;
+const { monsterSvg } = __m18_js_ui_sprites_js;
+const { ICON } = __m24_js_ui_icons_js;
+// Okno Kobky: seznam kobek, klíče, úroveň bosse, odměna další úrovně. Jen vykreslení.
+
+
+
+
+
+
+
+function dungeonRewardHtml(r) {
+  const parts = [];
+  if (r.gold) parts.push(`${ICON.gold}${formatNumber(r.gold)}`);
+  if (r.ore) parts.push(`${ICON.ore}${formatNumber(r.ore)}`);
+  if (r.coal) parts.push(`${ICON.coal}${formatNumber(r.coal)}`);
+  if (r.diamonds) parts.push(`${ICON.diamond}${formatNumber(r.diamonds)}`);
+  if (r.mats) parts.push(`${tr('{v}× surovina hlubin', { v: r.mats })}`);
+  return parts.map((p) => `<span class="rw">${p}</span>`).join('');
+}
+
+function dungeonsHtml(state) {
+  const hero = getHeroStats(state);
+  const cards = DUNGEONS.map((dg) => {
+    const theme = dungeonLayer(dg.id).theme;
+    const art = `<div class="dg-art" style="background:linear-gradient(180deg, ${theme.sky[0]}, ${theme.sky[1]})"><svg viewBox="0 -10 140 110">${monsterSvg(dg.shape, theme)}</svg></div>`;
+    if (!isUnlocked(state, dg)) {
+      return `<div class="card dg locked">${art}<div class="dg-main"><b>${dg.name}</b>
+        <span class="small">${tr('Odemkne se ve vrstvě {v}', { v: dg.unlockLayer + 1 })} (${LAYERS[dg.unlockLayer].name})</span></div></div>`;
+    }
+    const best = bestLevel(state, dg.id);
+    const next = best + 1;
+    const k = keys(state, dg.id);
+    const boss = bossPreview(dg.id, next);
+    // Odhad: kolik úderů hrdina potřebuje vs. limit (jen orientačně)
+    const dps = (hero.attack * hero.bossMult * (1 + hero.critChance * (hero.critMult - 1))) / hero.attackInterval;
+    const ttk = boss.hp / Math.max(1, dps);
+    const survive = hero.hp / Math.max(1, boss.attack * (1 - hero.resist) / 1.2);
+    const hard = ttk > DUNGEON.timeLimit || survive < ttk;
+    const diff = !hard ? `<span class="dg-ok">${tr('Zvládneš')}</span>` : `<span class="dg-hard">${tr('Těžké')}</span>`;
+    const fight = k > 0
+      ? `<button class="buy" data-action="dg-fight" data-id="${dg.id}">${tr('Bojovat')} · ${ICON.key}1</button>`
+      : `<button class="buy" data-action="dg-key" data-id="${dg.id}" ${state.diamonds < DUNGEON.keyCost ? 'disabled' : ''}>+${ICON.key}1 · ${ICON.diamond}${DUNGEON.keyCost}</button>`;
+    const sweep = best > 0
+      ? `<button class="buy ghost small" data-action="dg-sweep" data-id="${dg.id}" ${k > 0 ? '' : 'disabled'}>${tr('Rychle vyčistit úr. {v}', { v: best })}</button>`
+      : '';
+    return `<div class="card dg">${art}
+      <div class="dg-main">
+        <div class="dg-head"><b>${dg.name}</b><span class="dg-keys">${ICON.key}${k}</span></div>
+        <span class="small">${dg.boss} · ${tr('úroveň {v}', { v: next })} ${diff}</span>
+        <span class="small dg-stats">${ICON.hp}${formatNumber(boss.hp)} ${ICON.attack}${formatNumber(boss.attack)} · ${tr('limit {v} s', { v: DUNGEON.timeLimit })}</span>
+        <div class="q-rew">${dungeonRewardHtml(levelReward(dg.id, next))}</div>
+        <div class="dg-btns">${fight}${sweep}</div>
+      </div></div>`;
+  }).join('');
+  return `${cards}
+    <p class="note">${tr('Poraz bosse kobky a odemkne se další, silnější úroveň s větší odměnou. Výhra stojí 1 klíč, prohra nic. Klíče se každý den doplní na {v}. Rychlé vyčištění dá odměnu nejvyšší poražené úrovně bez boje.', { v: DUNGEON.keysPerDay })}</p>`;
+}
+
+return { dungeonRewardHtml, dungeonsHtml };
+})();
+
 // ===== js/ui/effects.js =====
-const __m35_js_ui_effects_js = (() => {
+const __m37_js_ui_effects_js = (() => {
 const { RARITIES } = __m2_js_config_js;
 const { ICON } = __m24_js_ui_icons_js;
 const { tr } = __m1_js_i18n_js;
@@ -4895,7 +5230,7 @@ return { vibrate, anvilStrike, sparks, rarityReveal, floatText, goldGain, coalGa
 })();
 
 // ===== js/ui/sound.js =====
-const __m36_js_ui_sound_js = (() => {
+const __m38_js_ui_sound_js = (() => {
 
 // Zvuky generované přes WebAudio – žádné soubory. Jen přehrávání, stav hry nemění.
 // Prohlížeč na mobilu pustí zvuk až po prvním dotyku – unlock() se volá při každém klepnutí.
@@ -5316,43 +5651,46 @@ return { unlock, setSound, anvil, reveal, heroHit, heroHurt, kill, coin, equip, 
 })();
 
 // ===== js/main.js =====
-const __m37_js_main_js = (() => {
+const __m39_js_main_js = (() => {
 const { SAVE } = __m2_js_config_js;
 const { tr, setLang, getLang, locale } = __m1_js_i18n_js;
 const { itemName } = __m4_js_core_items_js;
 const { getLayer } = __m5_js_core_layers_js;
 const { loadState, saveState, resetState } = __m6_js_core_state_js;
-const { buildStatic, renderAll, renderBattle, animateAttack, showToast } = __m29_js_ui_render_js;
+const { buildStatic, renderAll, renderBattle, animateAttack, showToast } = __m30_js_ui_render_js;
 const { createBattle, updateCombat } = __m12_js_core_combat_js;
 const { formatNumber } = __m11_js_core_format_js;
 const { forgeItem, equipPending, smeltPending, upgradeForge, isForgeXpFull, forgeUpgradeCost, mergePending } = __m10_js_core_forge_js;
 const { tickCoal, canAffordForge, spendForgeCoal, secondsToNextCoal, rollCoalDrop } = __m13_js_core_coal_js;
 const { rewardText } = __m27_js_ui_itemView_js;
 const { ICON } = __m24_js_ui_icons_js;
-const { updateBattleView, resetBattleView } = __m31_js_ui_battleView_js;
+const { updateBattleView, resetBattleView } = __m32_js_ui_battleView_js;
 const { renderTab, merchantSel } = __m25_js_ui_tabs_js;
 const { buyCoalPack, buyChest } = __m23_js_core_shop_js;
 const { rollMaterialDrop } = __m19_js_core_loot_js;
 const { simulateOffline } = __m20_js_core_offline_js;
 const { unlockCompanion, upgradeCompanion } = __m17_js_core_companions_js;
 const { refreshQuests, track, claimQuest, claimDailyBonus, claimLogin, firstBossReward, claimableCount } = __m14_js_core_quests_js;
-const { questsHtml } = __m32_js_ui_questsView_js;
+const { questsHtml } = __m33_js_ui_questsView_js;
 const { ingredientsHtml } = __m26_js_ui_ingredientsView_js;
 const { ingredientModifiers, consumeIngredients, putIngredient, clearSocket, missingIngredients } = __m15_js_core_ingredients_js;
 const { doPrestige, buyRuneUpgrade, runDepth, runesForDepth } = __m16_js_core_prestige_js;
 const { SHOP, PASS, PREMIUM } = __m2_js_config_js;
 const { refillCoal, buySpeed, buyInstant, buyDiamondChest, buyAutoForge, useCosmetic } = __m21_js_core_premium_js;
 const { refreshPass, addPassXp, claimPass, buyPremiumPass } = __m22_js_core_pass_js;
-const { passHtml } = __m33_js_ui_passView_js;
+const { passHtml } = __m34_js_ui_passView_js;
 const { getBonuses } = __m7_js_core_bonuses_js;
 const { compareItems } = __m4_js_core_items_js;
 const { canMergePending, forgeUpgradeOre } = __m10_js_core_forge_js;
 const { upgradeSlot, polishSlot } = __m8_js_core_slots_js;
-const { slotHtml } = __m34_js_ui_slotView_js;
+const { slotHtml } = __m35_js_ui_slotView_js;
 const { SLOTS } = __m2_js_config_js;
+const { refreshKeys, startDungeon, updateDungeon, sweepDungeon, buyKey, dungeonDef } = __m29_js_core_dungeon_js;
+const { dungeonsHtml, dungeonRewardHtml } = __m36_js_ui_dungeonView_js;
+const { materialInfo } = __m26_js_ui_ingredientsView_js;
 const { buyMaterialPack, buyOrePack, swapMaterial, sellForOre } = __m23_js_core_shop_js;
-const fx = __m35_js_ui_effects_js;
-const sfx = __m36_js_ui_sound_js;
+const fx = __m37_js_ui_effects_js;
+const sfx = __m38_js_ui_sound_js;
 // Vstupní bod hry: načte stav, napojí ovládání, spustí smyčku a autosave.
 
 
@@ -5374,11 +5712,13 @@ let lastCoalTick = Date.now();
 // Dopočítat dobu, kdy byla hra zavřená: uhlí + boj (offline postup)
 let pendingOffline = catchUp((Date.now() - state.lastSaved) / 1000);
 let battle = createBattle(state);
+let dungeonFight = null; // probíhající souboj v kobce (hlavní boj mezitím stojí)
 let tab = 'forge';
 
 // Překreslí vše včetně otevřené záložky
 function render() {
-  renderAll(state, battle);
+  renderAll(state, dungeonFight ?? battle);
+  if (dungeonFight) renderDungeonStage();
   if (tab !== 'forge') renderTab(tab, state);
 }
 
@@ -5516,7 +5856,8 @@ function init() {
   translateStatic();
   refreshQuests(state);
   refreshPass(state);
-  setInterval(() => { if (refreshQuests(state)) render(); }, 60 * 1000);
+  refreshKeys(state);
+  setInterval(() => { const a = refreshQuests(state), b = refreshKeys(state); if (a || b) render(); }, 60 * 1000);
   applySound();
   // Prohlížeč pustí zvuk až po prvním dotyku
   // iPhone povolí zvuk jen v obsluze dotyku (touchend/click), ne při pointerdown
@@ -5664,6 +6005,34 @@ function bindUi() {
     fx.bumpResource('power');
     render();
     renderSlot();
+  });
+
+  const dungeons = document.getElementById('dungeons');
+  document.getElementById('btn-dungeons').addEventListener('click', () => {
+    sfx.tap();
+    if (dungeonFight) return;
+    refreshKeys(state);
+    renderDungeons();
+    dungeons.classList.remove('hidden');
+  });
+  document.getElementById('btn-close-dungeons').addEventListener('click', () => dungeons.classList.add('hidden'));
+  document.getElementById('dungeons-body').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-action]');
+    if (!b || b.disabled) return;
+    const id = b.dataset.id;
+    if (b.dataset.action === 'dg-fight') enterDungeon(id);
+    else if (b.dataset.action === 'dg-key') { if (buyKey(state, id)) { sfx.buy(); saveState(state); } else sfx.denied(); }
+    else if (b.dataset.action === 'dg-sweep') {
+      const r = sweepDungeon(state, id);
+      if (r) {
+        sfx.buy();
+        const mats = Object.entries(r.matsGot).map(([m, n]) => `+${n} ${materialInfo(m).name}`).join(', ');
+        showToast(`${dungeonRewardHtml({ ...r, mats: 0 })}${mats ? ` ${mats}` : ''}`, 2400);
+        saveState(state);
+      }
+    }
+    renderDungeons();
+    render();
   });
 
   const quests = document.getElementById('quests');
@@ -5882,6 +6251,7 @@ function startLoop() {
 
 function update(dt) {
   autoForgeTick(dt);
+  if (dungeonFight) { updateDungeonFight(dt); return; }
   dt *= getBonuses(state).speed; // zrychlení boje za diamanty
   const events = updateCombat(state, battle, dt);
   updateBattleView(state, battle, dt);
@@ -5919,6 +6289,73 @@ function update(dt) {
   }
   if (needFull) render();
   else renderBattle(state, battle);
+}
+
+// ---------------- Kobky ----------------
+function renderDungeonStage() {
+  const f = dungeonFight;
+  const label = `${dungeonDef(f.dungeon).name} · ${tr('úroveň {v}', { v: f.level })}`;
+  const dl = document.getElementById('depth-label');
+  if (dl.textContent !== label) dl.textContent = label;
+  const t = document.getElementById('dg-timer');
+  const txt = `${Math.ceil(f.timeLeft)} s`;
+  if (t.textContent !== txt) t.textContent = txt;
+  t.classList.toggle('low', f.timeLeft <= 8);
+}
+
+function renderDungeons() {
+  document.getElementById('dungeons-body').innerHTML = dungeonsHtml(state);
+}
+
+function enterDungeon(id) {
+  const f = startDungeon(state, id);
+  if (!f) { sfx.denied(); return; }
+  dungeonFight = f;
+  document.getElementById('dungeons').classList.add('hidden');
+  document.getElementById('battle').classList.add('in-dungeon');
+  sfx.boss();
+  fx.banner(dungeonDef(id).name, '#f2c14e', `${f.monster.name} · ${tr('úroveň {v}', { v: f.level })}`);
+  render();
+}
+
+function leaveDungeon() {
+  dungeonFight = null;
+  document.getElementById('battle').classList.remove('in-dungeon');
+  battle = createBattle(state); // hlavní boj pokračuje aktuální vlnou
+  render();
+}
+
+function updateDungeonFight(dt) {
+  const f = dungeonFight;
+  const events = updateDungeon(state, f, dt);
+  updateBattleView(state, f, dt);
+  sfx.musicMood(getLayer(dungeonDef(f.dungeon).themeLayer).baseId, true);
+  for (const e of events) {
+    switch (e.type) {
+      case 'heroHit': sfx.heroHit(); animateAttack('hero'); fx.floatText('monster', e.crit ? `${formatNumber(e.dmg)}!` : formatNumber(e.dmg), e.crit ? 'crit' : 'dmg'); break;
+      case 'dodge': fx.floatText('hero', tr('Úhyb'), 'dodge'); break;
+      case 'monsterHit': sfx.heroHurt(); animateAttack('monster'); fx.floatText('hero', `-${formatNumber(e.dmg)}`, 'hurt'); break;
+      case 'dungeonEnd': {
+        const dg = dungeonDef(f.dungeon);
+        saveState(state);
+        if (e.win) {
+          sfx.kill(); setTimeout(sfx.levelUp, 300);
+          const mats = Object.entries(e.reward.matsGot).map(([id, n]) => `<div class="rw-line"><span>${materialInfo(id).name}</span><b>+${n}</b></div>`).join('');
+          setTimeout(() => openReward(tr('Vítězství!'), `${dg.name} · ${tr('úroveň {v}', { v: f.level })} · ${tr('odemčena úroveň {v}', { v: f.level + 1 })}`,
+            `<div class="q-rew dg-reward">${dungeonRewardHtml({ ...e.reward, mats: 0 })}</div>${mats}`,
+            [{ label: tr('Vyzvednout'), cls: 'primary', onClick: () => { sfx.coin(); leaveDungeon(); } }]), 900);
+        } else {
+          if (!e.timeout) { sfx.death(); fx.heroDeath(); }
+          setTimeout(() => openReward(e.timeout ? tr('Čas vypršel') : tr('Porážka'), `${dg.name} · ${tr('úroveň {v}', { v: f.level })}`,
+            `<p class="note">${tr('Klíč ti zůstal. Vylepši vybavení (kování, sloty, runy) a zkus to znovu.')}</p>`,
+            [{ label: tr('Zpět do hlubin'), cls: 'primary', onClick: leaveDungeon }]), 900);
+        }
+        break;
+      }
+    }
+  }
+  renderBattle(state, f);
+  renderDungeonStage();
 }
 
 // Pro ladění v konzoli prohlížeče: window.game.state
