@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="build" content="2026-11-04 23:42">
+  <meta name="build" content="2026-11-04 23:45">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0e1a22">
   <meta name="mobile-web-app-capable" content="yes">
@@ -595,6 +595,10 @@ body { display: flex; justify-content: center; }
 .dg-reward { justify-content: center; margin: 6px 0; }
 .dg-reward .rw { font-size: 16px; }
 .dg-reward .rw svg { width: 20px; height: 20px; }
+.forge-unlocks { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.fu { display: flex; justify-content: space-between; align-items: center; background: var(--bg); border-radius: 12px; padding: 8px 12px; font-weight: 800; font-size: 13px; opacity: .7; }
+.fu.got { opacity: 1; }
+.fu.got b { color: var(--accent); }
 
 </style>
 </head>
@@ -752,6 +756,14 @@ body { display: flex; justify-content: center; }
     </div>
   </div>
 
+  <!-- Kovárna: úroveň, vylepšení, šance -->
+  <div id="forge-info" class="overlay hidden">
+    <div class="panel tall">
+      <div class="panel-head"><h2 data-i18n="Kovárna">Kovárna</h2><button class="icon-btn" id="btn-close-forge-info" aria-label="Zavřít" data-i18n-aria="Zavřít">&times;</button></div>
+      <div id="forge-info-body" class="panel-scroll"></div>
+    </div>
+  </div>
+
   <!-- Kobky -->
   <div id="dungeons" class="overlay hidden">
     <div class="panel tall">
@@ -861,7 +873,6 @@ const EN = {
   'trpaslík bojoval sám': 'the dwarf fought alone', 'Poraženo příšer': 'Monsters defeated', 'Postup': 'Progress',
   '+{v} vln': '+{v} waves', 'ústup o {v}': 'fell back {v}', 'drží se': 'holding',
   'Vyzvednout': 'Claim', 'Došlo uhlí – další za {v}': 'Out of coal – next in {v}', 'Vybaveno': 'Equipped', 'sloučeno': 'merged',
-  'Zkušenosti kovárny získáš přetavováním předmětů': 'Forge XP comes from smelting items', 'Na vylepšení chybí': 'Upgrade needs',
   'Odměna': 'Reward', 'diamantová truhla zdarma': 'free diamond chest', 'Koupeno': 'Bought', 'Vyměněno': 'Exchanged',
   'Boj ×{v} na {v2} min': 'Combat ×{v} for {v2} min', 'Okamžitý postup': 'Instant progress', 'Automatické kování zapnuto': 'Auto-forge on',
   'Zapečetit kovárnu?': 'Seal the forge?', 'Začneš znovu od Hlíny, ale silnější.': 'You start again from Clay, but stronger.',
@@ -944,6 +955,13 @@ const EN = {
   'Zpět do hlubin': 'Back to the depths', '{v}× surovina hlubin': '{v}× deep material', 'Odemkne se ve vrstvě {v}': 'Unlocks at layer {v}',
   'Zvládneš': 'Doable', 'Těžké': 'Hard', 'Bojovat': 'Fight', 'Rychle vyčistit úr. {v}': 'Quick clear lv. {v}', 'limit {v} s': '{v} s limit',
   'Poraz bosse kobky a odemkne se další, silnější úroveň s větší odměnou. Výhra stojí 1 klíč, prohra nic. Klíče se každý den doplní na {v}. Rychlé vyčištění dá odměnu nejvyšší poražené úrovně bez boje.': 'Defeat the dungeon boss to unlock the next, stronger level with a bigger reward. A win costs 1 key, a loss costs nothing. Keys refill to {v} every day. Quick clear gives the reward of your highest beaten level without a fight.',
+  // Okno kovárny
+  'Nová vzácnost': 'New rarity', 'Maximální úroveň': 'Max level',
+  'Zkušenosti kovárny získáš přetavováním předmětů.': 'You earn forge XP by smelting items.',
+  'Na vylepšení chybí zlato nebo ruda.': 'Not enough gold or ore to upgrade.', 'Kovárnu lze vylepšit!': 'The forge can be upgraded!',
+  'úr. {v}': 'lv. {v}', 'Kovárna – úroveň {v}': 'Forge – level {v}', 'Teď (úr. {v})': 'Now (lv. {v})', 'Úr. {v}': 'Lv. {v}',
+  'Vzácnosti se odemykají': 'Rarity unlocks',
+  'Lepší vzácnost začne padat až od určité úrovně kovárny a s dalšími úrovněmi je častější. Přísady (vpravo od KOVAT) šance ještě zvýší, ale zamčenou vzácnost neodemknou.': 'Better rarities only drop from a certain forge level and get more common with each level. Ingredients (right of FORGE) raise the odds further, but cannot unlock a locked rarity.',
 };
 
 return { EN };
@@ -1017,12 +1035,12 @@ const SAVE = {
 //  smeltGold / smeltOre / smeltXp = co dá přetavení
 // ---------------------------------------------------------------------
 const RARITIES = [
-  { id: 'common',    get name() { return tr('Běžný'); },      color: '#9aa0a6', weight: 1000, statMult: 1.0, smeltGold: 2,   smeltOre: 1,  smeltXp: 1 },
-  { id: 'uncommon',  get name() { return tr('Neobvyklý'); },  color: '#4caf50', weight: 400,  statMult: 1.5, smeltGold: 5,   smeltOre: 2,  smeltXp: 3 },
-  { id: 'rare',      get name() { return tr('Vzácný'); },     color: '#2f8cff', weight: 120,  statMult: 2.3, smeltGold: 12,  smeltOre: 4,  smeltXp: 8 },
-  { id: 'epic',      get name() { return tr('Epický'); },     color: '#b04cff', weight: 30,   statMult: 3.5, smeltGold: 30,  smeltOre: 8,  smeltXp: 20 },
-  { id: 'legendary', get name() { return tr('Legendární'); }, color: '#ff9f1a', weight: 6,    statMult: 5.5, smeltGold: 80,  smeltOre: 16, smeltXp: 50 },
-  { id: 'mythic',    get name() { return tr('Mýtický'); },    color: '#ff3b5c', weight: 1,    statMult: 8.5, smeltGold: 200, smeltOre: 32, smeltXp: 120 },
+  { id: 'common', unlock: 1,    get name() { return tr('Běžný'); },      color: '#9aa0a6', weight: 1000, statMult: 1.0, smeltGold: 2,   smeltOre: 1,  smeltXp: 1 },
+  { id: 'uncommon', unlock: 1,  get name() { return tr('Neobvyklý'); },  color: '#4caf50', weight: 400,  statMult: 1.5, smeltGold: 5,   smeltOre: 2,  smeltXp: 3 },
+  { id: 'rare', unlock: 2,      get name() { return tr('Vzácný'); },     color: '#2f8cff', weight: 120,  statMult: 2.3, smeltGold: 12,  smeltOre: 4,  smeltXp: 8 },
+  { id: 'epic', unlock: 5,      get name() { return tr('Epický'); },     color: '#b04cff', weight: 30,   statMult: 3.5, smeltGold: 30,  smeltOre: 8,  smeltXp: 20 },
+  { id: 'legendary', unlock: 9, get name() { return tr('Legendární'); }, color: '#ff9f1a', weight: 6,    statMult: 5.5, smeltGold: 80,  smeltOre: 16, smeltXp: 50 },
+  { id: 'mythic', unlock: 14,    get name() { return tr('Mýtický'); },    color: '#ff3b5c', weight: 1,    statMult: 8.5, smeltGold: 200, smeltOre: 32, smeltXp: 120 },
 ];
 
 // ---------------------------------------------------------------------
@@ -1105,6 +1123,9 @@ const FORGE = {
   // každá úroveň kovárny nad 1 zvýší váhu vzácnosti s indexem i o
   // rarityBonusPerLevel * i (Běžný se nemění) → lepší předměty častěji
   rarityBonusPerLevel: 0.15,
+  // Vzácnost padá až od úrovně kovárny `unlock` (v RARITIES) a její šance se pak
+  // rozjíždí postupně – plnou váhu má po `rarityRampLevels` úrovních.
+  rarityRampLevels: 4,
   // odměna za přetavení (zlato, ruda) roste s úrovní předmětu:
   // základ z RARITIES × (1 + smeltLevelScale × (úroveň - 1)); zkušenosti se neškálují
   smeltLevelScale: 0.1,
@@ -1497,7 +1518,7 @@ return { randInt, randFloat, pick, weightedPick };
 
 // ===== js/core/items.js =====
 const __m4_js_core_items_js = (() => {
-const { RARITIES, SLOTS, STATS, ITEMS, ITEM_NAMES, DEPTH, LEGENDS } = __m2_js_config_js;
+const { RARITIES, SLOTS, STATS, ITEMS, ITEM_NAMES, DEPTH, LEGENDS, FORGE } = __m2_js_config_js;
 const { pick, randInt, randFloat, weightedPick } = __m3_js_core_rng_js;
 const { tr } = __m1_js_i18n_js;
 // Generování a hodnocení předmětů. Žádné DOM.
@@ -1577,7 +1598,9 @@ function createItem({ slotId, rarity, level, id }) {
  */
 function rarityWeights(forgeLevel, modifiers = [], rarityBonusPerLevel = 0) {
   return RARITIES.map((r, i) => {
-    let w = r.weight * (1 + rarityBonusPerLevel * (forgeLevel - 1) * i);
+    const unlock = r.unlock ?? 1;
+    const ramp = forgeLevel < unlock ? 0 : Math.min(1, (forgeLevel - unlock + 1) / (FORGE.rarityRampLevels ?? 1));
+    let w = r.weight * ramp * (1 + rarityBonusPerLevel * (forgeLevel - 1) * i);
     for (const m of modifiers) w *= m.rarityMult?.[r.id] ?? 1;
     return { index: i, weight: w };
   });
@@ -5068,8 +5091,73 @@ function dungeonsHtml(state) {
 return { dungeonRewardHtml, dungeonsHtml };
 })();
 
+// ===== js/ui/forgeView.js =====
+const __m37_js_ui_forgeView_js = (() => {
+const { FORGE, RARITIES } = __m2_js_config_js;
+const { tr } = __m1_js_i18n_js;
+const { formatNumber } = __m11_js_core_format_js;
+const { rarityWeights, rarityChances } = __m4_js_core_items_js;
+const { xpForNextLevel, isForgeMaxed, isForgeXpFull, forgeUpgradeCost, forgeUpgradeOre } = __m10_js_core_forge_js;
+const { getBonuses } = __m7_js_core_bonuses_js;
+const { ICON } = __m24_js_ui_icons_js;
+// Okno Kovárna: úroveň, zkušenosti, vylepšení a šance na vzácnost (teď / po vylepšení),
+// plus od které úrovně padá která vzácnost. Jen vykreslení.
+
+
+
+
+
+
+
+const fmt = (v) => (v <= 0 ? '–' : v < 0.1 ? '<0,1 %' : `${v.toFixed(v < 10 ? 1 : 0)} %`).replace('.', ',');
+
+function forgeInfoHtml(state) {
+  const lvl = state.forge.level;
+  const luck = getBonuses(state).luckLevels;
+  const maxed = isForgeMaxed(state);
+  const now = rarityChances(rarityWeights(lvl + luck, [], FORGE.rarityBonusPerLevel));
+  const next = maxed ? null : rarityChances(rarityWeights(lvl + 1 + luck, [], FORGE.rarityBonusPerLevel));
+
+  const rows = RARITIES.map((r, i) => {
+    const d = next ? next[i] - now[i] : 0;
+    const cls = Math.abs(d) < 0.005 ? '' : d > 0 ? 'up' : 'down';
+    return `<tr><td style="color:${r.color};font-weight:900">${r.name}</td><td>${fmt(now[i])}</td>${next ? `<td class="diff ${cls}">${fmt(next[i])}</td>` : ''}</tr>`;
+  }).join('');
+
+  const need = xpForNextLevel(lvl);
+  const pct = maxed ? 100 : Math.min(100, Math.round((state.forge.xp / need) * 100));
+  const cost = forgeUpgradeCost(lvl), ore = forgeUpgradeOre(lvl);
+  const ready = isForgeXpFull(state);
+  const canPay = state.gold >= cost && state.materials.ore >= ore;
+  const btn = maxed ? `<span class="done-mark">${tr('Maximální úroveň')}</span>`
+    : `<button class="buy" data-action="forge-up" ${ready && canPay ? '' : 'disabled'}>${tr('Vylepšit')} · ${ICON.gold}${formatNumber(cost)} ${ICON.ore}${formatNumber(ore)}</button>`;
+  const hint = maxed ? '' : !ready ? tr('Zkušenosti kovárny získáš přetavováním předmětů.')
+    : !canPay ? tr('Na vylepšení chybí zlato nebo ruda.') : tr('Kovárnu lze vylepšit!');
+
+  const unlocks = RARITIES.filter((r) => (r.unlock ?? 1) > 1).map((r) => {
+    const got = lvl + luck >= r.unlock;
+    return `<div class="fu ${got ? 'got' : ''}"><span style="color:${r.color}">${r.name}</span><b>${got ? '✓' : tr('úr. {v}', { v: r.unlock })}</b></div>`;
+  }).join('');
+
+  return `
+    <div class="card">
+      <div class="dg-head"><b>${tr('Kovárna – úroveň {v}', { v: lvl })}</b>${luck ? `<span class="small">${tr('+ {v} z run', { v: luck })}</span>` : ''}</div>
+      <div class="q-bar big"><i style="width:${pct}%"></i><span>${maxed ? tr('Maximální úroveň') : `${formatNumber(Math.min(state.forge.xp, need))} / ${formatNumber(need)} ${tr('zk.')}`}</span></div>
+      <div class="dg-btns">${btn}</div>
+      ${hint ? `<p class="note">${hint}</p>` : ''}
+    </div>
+    <h4>${tr('Šance na vzácnost')}</h4>
+    <table class="ch-table"><tr><th></th><th>${tr('Teď (úr. {v})', { v: lvl })}</th>${next ? `<th>${tr('Úr. {v}', { v: lvl + 1 })}</th>` : ''}</tr>${rows}</table>
+    <h4>${tr('Vzácnosti se odemykají')}</h4>
+    <div class="forge-unlocks">${unlocks}</div>
+    <p class="note">${tr('Lepší vzácnost začne padat až od určité úrovně kovárny a s dalšími úrovněmi je častější. Přísady (vpravo od KOVAT) šance ještě zvýší, ale zamčenou vzácnost neodemknou.')}</p>`;
+}
+
+return { forgeInfoHtml };
+})();
+
 // ===== js/ui/effects.js =====
-const __m37_js_ui_effects_js = (() => {
+const __m38_js_ui_effects_js = (() => {
 const { RARITIES } = __m2_js_config_js;
 const { ICON } = __m24_js_ui_icons_js;
 const { tr } = __m1_js_i18n_js;
@@ -5230,7 +5318,7 @@ return { vibrate, anvilStrike, sparks, rarityReveal, floatText, goldGain, coalGa
 })();
 
 // ===== js/ui/sound.js =====
-const __m38_js_ui_sound_js = (() => {
+const __m39_js_ui_sound_js = (() => {
 
 // Zvuky generované přes WebAudio – žádné soubory. Jen přehrávání, stav hry nemění.
 // Prohlížeč na mobilu pustí zvuk až po prvním dotyku – unlock() se volá při každém klepnutí.
@@ -5651,7 +5739,7 @@ return { unlock, setSound, anvil, reveal, heroHit, heroHurt, kill, coin, equip, 
 })();
 
 // ===== js/main.js =====
-const __m39_js_main_js = (() => {
+const __m40_js_main_js = (() => {
 const { SAVE } = __m2_js_config_js;
 const { tr, setLang, getLang, locale } = __m1_js_i18n_js;
 const { itemName } = __m4_js_core_items_js;
@@ -5684,13 +5772,14 @@ const { compareItems } = __m4_js_core_items_js;
 const { canMergePending, forgeUpgradeOre } = __m10_js_core_forge_js;
 const { upgradeSlot, polishSlot } = __m8_js_core_slots_js;
 const { slotHtml } = __m35_js_ui_slotView_js;
-const { SLOTS } = __m2_js_config_js;
+const { SLOTS, RARITIES } = __m2_js_config_js;
 const { refreshKeys, startDungeon, updateDungeon, sweepDungeon, buyKey, dungeonDef } = __m29_js_core_dungeon_js;
 const { dungeonsHtml, dungeonRewardHtml } = __m36_js_ui_dungeonView_js;
 const { materialInfo } = __m26_js_ui_ingredientsView_js;
+const { forgeInfoHtml } = __m37_js_ui_forgeView_js;
 const { buyMaterialPack, buyOrePack, swapMaterial, sellForOre } = __m23_js_core_shop_js;
-const fx = __m37_js_ui_effects_js;
-const sfx = __m38_js_ui_sound_js;
+const fx = __m38_js_ui_effects_js;
+const sfx = __m39_js_ui_sound_js;
 // Vstupní bod hry: načte stav, napojí ovládání, spustí smyčku a autosave.
 
 
@@ -5936,27 +6025,25 @@ function bindUi() {
     announceSmelt(res);
   });
 
+  const forgeInfo = document.getElementById('forge-info');
+  const renderForgeInfo = () => { document.getElementById('forge-info-body').innerHTML = forgeInfoHtml(state); };
   document.getElementById('btn-forge-lvl').addEventListener('click', () => {
-    if (!isForgeXpFull(state)) {
-      sfx.denied();
-      showToast(tr('Zkušenosti kovárny získáš přetavováním předmětů'));
-      return;
-    }
-    const cost = forgeUpgradeCost(state.forge.level);
-    const ore = forgeUpgradeOre(state.forge.level);
-    if (state.gold < cost || state.materials.ore < ore) {
-      sfx.denied();
-      const miss = [];
-      if (state.gold < cost) miss.push(`${formatNumber(cost - state.gold)}${ICON.gold}`);
-      if (state.materials.ore < ore) miss.push(`${formatNumber(ore - state.materials.ore)}${ICON.ore}`);
-      showToast(`${tr('Na vylepšení chybí')} ${miss.join(' ')}`);
-      return;
-    }
-    if (!upgradeForge(state)) return;
+    sfx.tap();
+    renderForgeInfo();
+    forgeInfo.classList.remove('hidden');
+  });
+  document.getElementById('btn-close-forge-info').addEventListener('click', () => forgeInfo.classList.add('hidden'));
+  document.getElementById('forge-info-body').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-action="forge-up"]');
+    if (!b || b.disabled) return;
+    if (!upgradeForge(state)) { sfx.denied(); return; }
     track(state, 'upgrade');
     render();
+    renderForgeInfo();
     fx.forgeLevelUp(state.forge.level);
     sfx.levelUp();
+    const unlocked = RARITIES.find((r) => r.unlock === state.forge.level);
+    if (unlocked) setTimeout(() => showToast(`${tr('Nová vzácnost')}: <b style="color:${unlocked.color}">${unlocked.name}</b>`, 2400), 500);
   });
 
   document.getElementById('btn-close-pass').addEventListener('click', () => { document.getElementById('pass').classList.add('hidden'); render(); });
