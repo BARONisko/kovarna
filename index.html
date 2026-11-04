@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="build" content="2026-11-04 22:58">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0e1a22">
   <meta name="mobile-web-app-capable" content="yes">
@@ -647,6 +648,10 @@ body { display: flex; justify-content: center; }
         <span data-i18n="Jazyk">Jazyk</span>
         <div class="lang-switch"><button data-lang="en">English</button><button data-lang="cs">Čeština</button></div>
       </div>
+      <div class="set-row">
+        <button id="btn-test-sound" class="btn" data-i18n="Vyzkoušet zvuk">Vyzkoušet zvuk</button>
+        <span class="small" id="sound-status"></span>
+      </div>
       <button id="btn-reset" class="btn danger" data-i18n="Smazat postup a začít znovu">Smazat postup a začít znovu</button>
       <button id="btn-close-menu" class="btn" data-i18n="Zavřít">Zavřít</button>
       <p class="small" id="save-info"></p>
@@ -883,6 +888,7 @@ const EN = {
   // ---------- legendy ----------
   'Zatím žádná legendárka.': 'No legendaries yet.', 'Každý ukovaný kus Legendární nebo Mýtické vzácnosti se sem zapíše – i když ho přetavíš.': 'Every Legendary or Mythic item you forge is recorded here – even if you smelt it.',
   'Nejsilnější podle slotu': 'Strongest per slot', 'Sbírka': 'Collection',
+  'Vyzkoušet zvuk': 'Test sound', 'verze': 'version',
 };
 
 return { EN };
@@ -4707,7 +4713,9 @@ return { vibrate, anvilStrike, sparks, rarityReveal, floatText, goldGain, coalGa
 const __m35_js_ui_sound_js = (() => {
 
 // Zvuky generované přes WebAudio – žádné soubory. Jen přehrávání, stav hry nemění.
-// Prohlížeč na mobilu pustí zvuk až po prvním dotyku – unlock() se volá při prvním klepnutí.
+// Prohlížeč na mobilu pustí zvuk až po prvním dotyku – unlock() se volá při každém klepnutí.
+// DŮLEŽITÉ (iPhone): AudioContext se smí vytvořit JEN v obsluze dotyku (unlock). Vytvořený mimo dotyk
+// (např. při prvním úderu v boji hned po načtení) zůstane na iOS ztlumený.
 
 let ctx = null;
 let master = null;
@@ -4766,7 +4774,7 @@ function unlock() {
   const c = ensure();
   if (!c) return;
   playbackSession();
-  if (c.state !== 'running') c.resume().catch(() => {});
+  if (c.state !== 'running') c.resume().catch(() => {}); // i 'interrupted' po návratu z pozadí
   // krátké ticho přímo v obsluze dotyku – starší iOS jinak zvuk nepustí
   const src = c.createBufferSource();
   src.buffer = c.createBuffer(1, 1, 22050);
@@ -4787,7 +4795,7 @@ function setSound(on, vol = volume) {
 
 function ready(name, minGapMs = 0) {
   if (!enabled) return null;
-  const c = ensure();
+  const c = ctx; // nevytvářet tady – jen v unlock() při dotyku
   if (!c || c.state !== 'running') return null;
   const now = performance.now();
   if (minGapMs && lastPlay[name] && now - lastPlay[name] < minGapMs) return null;
@@ -4952,7 +4960,13 @@ function denied() {
   tone(c, { f: 140, type: 'square', vol: 0.05, at: 0.1, dur: 0.15 });
 }
 
-return { unlock, setSound, anvil, reveal, heroHit, heroHurt, kill, coin, equip, smelt, levelUp, boss, layer, death, pickup, buy, tap, denied };
+// Stav zvuku pro okno Nastavení (ladění na telefonu)
+function soundStatus() {
+  if (!ctx) return 'no audio yet (tap anywhere)';
+  return `${ctx.state} · ${ctx.sampleRate} Hz${navigator.audioSession ? ` · session ${navigator.audioSession.type}` : ''}${silentEl ? ' · keepalive' : ''}`;
+}
+
+return { unlock, setSound, anvil, reveal, heroHit, heroHurt, kill, coin, equip, smelt, levelUp, boss, layer, death, pickup, buy, tap, denied, soundStatus };
 })();
 
 // ===== js/main.js =====
@@ -5436,7 +5450,8 @@ function bindUi() {
   const menu = document.getElementById('menu');
   document.getElementById('btn-menu').addEventListener('click', () => {
     const saved = new Date(state.lastSaved).toLocaleTimeString(locale());
-    document.getElementById('save-info').textContent = tr('Naposledy uloženo: {v}', { v: saved });
+    document.getElementById('save-info').textContent = `${tr('Naposledy uloženo: {v}', { v: saved })} · ${tr('verze')} ${document.querySelector('meta[name="build"]')?.content ?? 'dev'}`;
+    document.getElementById('sound-status').textContent = sfx.soundStatus();
     menu.classList.remove('hidden');
   });
   document.getElementById('btn-close-menu').addEventListener('click', () => menu.classList.add('hidden'));
@@ -5447,6 +5462,10 @@ function bindUi() {
     saveState(state);
     location.reload();
   }));
+  document.getElementById('btn-test-sound').addEventListener('click', () => {
+    sfx.unlock();
+    setTimeout(() => { sfx.anvil(); sfx.reveal(3); document.getElementById('sound-status').textContent = sfx.soundStatus(); }, 50);
+  });
   document.getElementById('btn-sound').addEventListener('click', () => {
     state.settings.sound = !state.settings.sound;
     applySound();
