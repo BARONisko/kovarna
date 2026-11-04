@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="build" content="2026-11-04 23:56">
+  <meta name="build" content="2026-11-04 23:59">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0e1a22">
   <meta name="mobile-web-app-capable" content="yes">
@@ -608,6 +608,17 @@ body { display: flex; justify-content: center; }
 .dg-workshop .row-main span { font-size: 12px; color: var(--muted); }
 .cp-tile .cp.dracek { width: 80%; }
 
+/* Relikvie: světélka kolem hrdiny */
+.relic-orb { position: absolute; left: 50%; top: 45%; width: var(--s); height: var(--s); margin: calc(var(--s) / -2); border-radius: 50%;
+  background: var(--rc); box-shadow: 0 0 8px 2px var(--rc); animation: relic-orbit 4.2s linear infinite; animation-delay: var(--d); }
+@keyframes relic-orbit {
+  0% { transform: translate(-38px, 0) scale(1); opacity: 1; } 25% { transform: translate(0, 12px) scale(1.2); opacity: 1; }
+  50% { transform: translate(38px, 0) scale(1); opacity: .8; } 75% { transform: translate(0, -14px) scale(.7); opacity: .4; }
+  100% { transform: translate(-38px, 0) scale(1); opacity: 1; } }
+.relic-tile svg { filter: drop-shadow(0 0 4px var(--rc)); }
+@media (prefers-reduced-motion: reduce) { .relic-orb { animation: none; } }
+.dg-workshop .row-main b { white-space: normal; overflow: visible; text-overflow: clip; }
+
 </style>
 </head>
 <body>
@@ -938,7 +949,7 @@ const EN = {
   'prázdné': 'empty', 'útok / {v} s': 'attack / {v} s', 'zdraví': 'health', 'Vybavení': 'Equipment',
   'klepni na slot v Kovárně: vylepšení a runy': 'tap a slot in the Forge: upgrades and runes', 'Statistiky': 'Statistics',
   'Nejhlouběji': 'Deepest', 'Ukováno': 'Forged', 'Legendárek': 'Legendaries', 'Pádů': 'Falls', 'Odemknout': 'Unlock',
-  'zdarma od hloubky {v}': 'free from depth {v}', 'Pomocníci': 'Companions', 'Bojové bonusy z run': 'Combat bonuses from runes',
+  'zdarma od hloubky {v}': 'free from depth {v}', 'Pomocníci': 'Companions',
   'Runy předků': 'Ancestral runes', 'run': 'runes', 'Zapečetěno {v}× · nejhlouběji {v2}': 'Sealed {v}× · deepest {v2}',
   'Zapečetíš kovárnu a začneš znovu od Hlíny – vybavení, zlato, ruda a úroveň kovárny zmizí. Za každou hloubku dostaneš Runy předků na trvalá vylepšení. Zůstává: runy, legendy, suroviny hlubin, statistiky.': 'Seal the forge and start again from Clay – gear, gold, ore and forge level are gone. Every depth gives Ancestral Runes for permanent upgrades. You keep: runes, legends, deep materials, statistics.',
   'Zapečetit kovárnu': 'Seal the forge', 'získáš {v} {v2} run (hloubka {v3})': 'you get {v} {v2} runes (depth {v3})', 'od hloubky {v} (teď {v2})': 'from depth {v} (now {v2})',
@@ -972,10 +983,12 @@ const EN = {
   'Lepší vzácnost začne padat až od určité úrovně kovárny a s dalšími úrovněmi je častější. Přísady (vpravo od KOVAT) šance ještě zvýší, ale zamčenou vzácnost neodemknou.': 'Better rarities only drop from a certain forge level and get more common with each level. Ingredients (right of FORGE) raise the odds further, but cannot unlock a locked rarity.',
   // Útržky a mazlíček
   'Dráček Uhlík': 'Ember the Dragonling', '+{v} % odměn z kobek': '+{v} % dungeon rewards', 'Nový mazlíček!': 'New pet!', 'útržky!': 'shards!',
-  'Útržky prastaré výzbroje': 'Ancient gear shards', 'úroveň podle nejhlubšího místa +{v}': 'level = deepest point +{v}', 'mazlíček': 'pet',
+  'Útržky prastaré výzbroje': 'Ancient gear shards', 'mazlíček': 'pet',
   'vylepšíš v záložce Hrdina': 'upgrade it in the Hero tab', 'Dílna útržků': 'Shard workshop', 'za {v} útržků z kobek': 'for {v} dungeon shards',
   'Útržky mají menší šanci padnout při výhře v kobce i při rychlém vyčištění, na vyšších úrovních víc kusů.': 'Shards have a small chance to drop when you win a dungeon or quick-clear it; higher levels drop more.',
   'Prsten zlatého golema': 'Ring of the Golden Golem', 'Helma důlního obra': 'Helm of the Mine Giant', 'Krunýř krystalového pavouka': 'Crystal Spider Carapace',
+  'Relikvie jsou trvalé – nejsou to předměty, jen efekty se speciálními staty (platí navždy, i po znovuzrození).': 'Relics are permanent – not items, just effects with special stats (they last forever, even after rebirth).',
+  'Bojové bonusy (runy a relikvie)': 'Combat bonuses (runes and relics)',
 };
 
 return { EN };
@@ -1243,15 +1256,17 @@ const DUNGEON = {
   shardsPerLevels: 5,
 };
 
-// Za útržky: speciální výzbroj (Legendární, úroveň = nejhlubší místo + levelBonus) a mazlíček (viz COMPANIONS, unlockShards)
-const SHARD_ITEMS = {
-  cost: 20,
-  rarity: 4,
-  levelBonus: 3,
+// Za útržky: trvalé relikvie (speciální výzbroj jako efekt) – nejsou to předměty, nedají se ztratit ani přetavit,
+// přidávají speciální staty (stejné jako runové obroušení, platí i stejné stropy). Přežijí znovuzrození.
+// Cena úrovně L (1…max) = costBase + costStep × (L - 1) útržků.
+const RELICS = {
+  max: 5,
+  costBase: 20,
+  costStep: 10,
   items: [
-    { id: 'prsten-golema', slot: 'ring', name: 'Prsten zlatého golema', get label() { return tr('Prsten zlatého golema'); } },
-    { id: 'helma-obra', slot: 'helmet', name: 'Helma důlního obra', get label() { return tr('Helma důlního obra'); } },
-    { id: 'krunyr-pavouka', slot: 'armor', name: 'Krunýř krystalového pavouka', get label() { return tr('Krunýř krystalového pavouka'); } },
+    { id: 'prsten-golema', slot: 'ring', stat: 'critChance', per: 3, color: '#f2c14e', get label() { return tr('Prsten zlatého golema'); } },
+    { id: 'helma-obra', slot: 'helmet', stat: 'resist', per: 4, color: '#c98a5a', get label() { return tr('Helma důlního obra'); } },
+    { id: 'krunyr-pavouka', slot: 'armor', stat: 'lifesteal', per: 3, color: '#c49bff', get label() { return tr('Krunýř krystalového pavouka'); } },
   ],
 };
 
@@ -1515,7 +1530,7 @@ const MERCHANT = {
   oreRate: 4,                // 1 kus suroviny hlubin → 4 rudy
 };
 
-return { SAVE, RARITIES, SLOTS, STATS, ITEMS, ITEM_NAMES, HERO, CURRENCIES, MATERIALS, FORGE, DEPTH, LAYERS, COMBAT, DUNGEON, SHARD_ITEMS, DUNGEONS, COAL, WEAPON_SHAPES, MATERIAL_DROP, SHOP, LEGENDS, OFFLINE, PRESTIGE, RUNE_UPGRADES, QUEST_POOL, LOGIN_REWARDS, DIAMONDS, INGREDIENTS, MERGE, COMPANIONS, COMPANION_COST, EVENTS, PREMIUM, COSMETICS, PASS, SLOT_UPGRADE, RUNE_POLISH, MERCHANT };
+return { SAVE, RARITIES, SLOTS, STATS, ITEMS, ITEM_NAMES, HERO, CURRENCIES, MATERIALS, FORGE, DEPTH, LAYERS, COMBAT, DUNGEON, RELICS, DUNGEONS, COAL, WEAPON_SHAPES, MATERIAL_DROP, SHOP, LEGENDS, OFFLINE, PRESTIGE, RUNE_UPGRADES, QUEST_POOL, LOGIN_REWARDS, DIAMONDS, INGREDIENTS, MERGE, COMPANIONS, COMPANION_COST, EVENTS, PREMIUM, COSMETICS, PASS, SLOT_UPGRADE, RUNE_POLISH, MERCHANT };
 })();
 
 // ===== js/core/rng.js =====
@@ -1819,7 +1834,7 @@ function createNewState() {
     records: { bossesBeaten: [] }, // vrstvy, jejichž bosse hráč už někdy porazil (diamanty jen poprvé)
     // znovuzrození: runy předků a trvalá vylepšení (přežijí zapečetění kovárny)
     prestige: { runes: 0, totalRunes: 0, count: 0, bestDepth: 0, upgrades: {} },
-    dungeons: { dayKey: '', keys: {}, levels: {}, shards: 0 }, // kobky: klíče a nejvyšší poražená úroveň
+    dungeons: { dayKey: '', keys: {}, levels: {}, shards: 0, relics: {} }, // kobky: klíče a nejvyšší poražená úroveň
     legends: [], // sbírka: každá ukovaná legendárka/mýtická (i přetavená)
   };
 }
@@ -1911,7 +1926,7 @@ return { getBonuses, addBonusProvider };
 
 // ===== js/core/slots.js =====
 const __m8_js_core_slots_js = (() => {
-const { SLOT_UPGRADE, RUNE_POLISH, SLOTS } = __m2_js_config_js;
+const { SLOT_UPGRADE, RUNE_POLISH, SLOTS, RELICS } = __m2_js_config_js;
 const { depthIndex } = __m4_js_core_items_js;
 const { locale } = __m1_js_i18n_js;
 // Sloty vybavení: vylepšení za zlato (patří slotu, ne předmětu) a runové obroušení surovinami hlubin.
@@ -1980,6 +1995,8 @@ function runeCombatStats(state) {
     const e = RUNE_POLISH.effects[r.id];
     out[e.stat] += e.per * r.lv;
   }
+  // trvalé relikvie z kobek (útržky)
+  for (const r of RELICS.items) out[r.stat] += r.per * (state.dungeons?.relics?.[r.id] ?? 0);
   for (const e of Object.values(RUNE_POLISH.effects)) out[e.stat] = Math.min(out[e.stat], e.cap);
   return out;
 }
@@ -3759,7 +3776,7 @@ function combatBonusHtml(state) {
     ['lifesteal', tr('Krádež života'), '%'], ['regen', tr('Regenerace'), '%/s'], ['resist', tr('Odolnost'), '%'], ['dodge', tr('Úhyb'), '%'], ['bossDamage', tr('Drtič bossů'), '%']]
     .filter(([k]) => r[k] > 0)
     .map(([k, n, u]) => `<div class="stat-tile"><span>${n}</span><b>+${(Math.round(r[k] * 10) / 10).toLocaleString(locale())} ${u}</b></div>`).join('');
-  return items ? `<h4>${tr('Bojové bonusy z run')}</h4><div class="stat-grid">${items}</div>` : '';
+  return items ? `<h4>${tr('Bojové bonusy (runy a relikvie)')}</h4><div class="stat-grid">${items}</div>` : '';
 }
 
 // ---------------- Runy předků (znovuzrození) ----------------
@@ -4065,9 +4082,8 @@ return { activeEvent, eventEnds };
 
 // ===== js/core/dungeon.js =====
 const __m29_js_core_dungeon_js = (() => {
-const { COMBAT, DUNGEON, DUNGEONS, LAYERS, SHARD_ITEMS } = __m2_js_config_js;
+const { COMBAT, DUNGEON, DUNGEONS, LAYERS, RELICS } = __m2_js_config_js;
 const { getBonuses } = __m7_js_core_bonuses_js;
-const { createItem, depthIndex } = __m4_js_core_items_js;
 const { getHeroStats } = __m9_js_core_hero_js;
 const { getLayer } = __m5_js_core_layers_js;
 const { dayKey } = __m14_js_core_quests_js;
@@ -4081,7 +4097,6 @@ const { pick } = __m3_js_core_rng_js;
 
 
 
-
 function dungeonDef(id) {
   return DUNGEONS.find((d) => d.id === id);
 }
@@ -4089,6 +4104,7 @@ function dungeonDef(id) {
 function ds(state) {
   if (!state.dungeons) state.dungeons = { dayKey: '', keys: {}, levels: {}, shards: 0 };
   if (state.dungeons.shards == null) state.dungeons.shards = 0;
+  if (!state.dungeons.relics) state.dungeons.relics = {};
   return state.dungeons;
 }
 
@@ -4175,17 +4191,20 @@ function rollShards(lv, sweep) {
   return DUNGEON.shardsBase + Math.floor(lv / DUNGEON.shardsPerLevels);
 }
 
-// Speciální výzbroj za útržky → čeká na rozhodnutí jako ukovaný předmět. Vrací předmět, nebo null.
-function craftShardItem(state, itemId) {
-  const def = SHARD_ITEMS.items.find((x) => x.id === itemId);
-  if (!def || state.pendingItem || shards(state) < SHARD_ITEMS.cost) return null;
-  ds(state).shards -= SHARD_ITEMS.cost;
-  const depth = depthIndex({ layer: state.progress.maxLayer, wave: state.progress.maxWave });
-  const item = createItem({ slotId: def.slot, rarity: SHARD_ITEMS.rarity, level: depth + SHARD_ITEMS.levelBonus, id: state.nextItemId++ });
-  item.name = def.name;
-  item.special = def.id;
-  state.pendingItem = item;
-  return item;
+// Trvalé relikvie za útržky
+function relicLevel(state, id) { return ds(state).relics?.[id] ?? 0; }
+function relicCost(lv) { return RELICS.costBase + RELICS.costStep * (lv - 1); } // cena úrovně lv
+
+function upgradeRelic(state, id) {
+  const r = RELICS.items.find((x) => x.id === id);
+  const lv = relicLevel(state, id);
+  if (!r || lv >= RELICS.max) return false;
+  const cost = relicCost(lv + 1);
+  if (shards(state) < cost) return false;
+  const d = ds(state);
+  d.shards -= cost;
+  d.relics = { ...(d.relics ?? {}), [id]: lv + 1 };
+  return true;
 }
 
 // Připíše odměnu. Suroviny hlubin: náhodně z vrstev, kam hráč už došel.
@@ -4270,12 +4289,12 @@ function dungeonLayer(id) {
   return getLayer(dungeonDef(id).themeLayer);
 }
 
-return { dungeonDef, refreshKeys, keys, bestLevel, totalKeys, isUnlocked, buyKey, levelReward, bossPreview, startDungeon, sweepDungeon, shards, craftShardItem, updateDungeon, dungeonLayer };
+return { dungeonDef, refreshKeys, keys, bestLevel, totalKeys, isUnlocked, buyKey, levelReward, bossPreview, startDungeon, sweepDungeon, shards, relicLevel, relicCost, upgradeRelic, updateDungeon, dungeonLayer };
 })();
 
 // ===== js/ui/render.js =====
 const __m30_js_ui_render_js = (() => {
-const { SLOTS, DEPTH, RARITIES, FORGE, COAL } = __m2_js_config_js;
+const { SLOTS, DEPTH, RARITIES, FORGE, COAL, RELICS } = __m2_js_config_js;
 const { getLayer } = __m5_js_core_layers_js;
 const { tr } = __m1_js_i18n_js;
 const { getHeroStats } = __m9_js_core_hero_js;
@@ -4410,7 +4429,12 @@ function renderEvent() {
 }
 
 function renderCompanions(state) {
-  const html = ['havran', 'skritek', 'krtek', 'dracek'].filter((id) => companionLevel(state, id) > 0).map((id) => COMPANION_SVG[id]).join('');
+  // relikvie z kobek = světélka kroužící kolem hrdiny (barva relikvie, víc úrovní = větší)
+  const orbs = RELICS.items.map((r, i) => {
+    const lv = state.dungeons?.relics?.[r.id] ?? 0;
+    return lv ? `<i class="relic-orb" style="--rc:${r.color};--d:${-i * 1.4}s;--s:${5 + lv}px"></i>` : '';
+  }).join('');
+  const html = ['havran', 'skritek', 'krtek', 'dracek'].filter((id) => companionLevel(state, id) > 0).map((id) => COMPANION_SVG[id]).join('') + orbs;
   const el = $('#companions');
   if (el.dataset.v !== html) { el.dataset.v = html; el.innerHTML = html; }
 }
@@ -5110,11 +5134,11 @@ return { slotHtml };
 
 // ===== js/ui/dungeonView.js =====
 const __m36_js_ui_dungeonView_js = (() => {
-const { DUNGEON, DUNGEONS, LAYERS, SHARD_ITEMS, COMPANIONS, RARITIES } = __m2_js_config_js;
+const { DUNGEON, DUNGEONS, LAYERS, RELICS, RUNE_POLISH, COMPANIONS } = __m2_js_config_js;
 const { tr } = __m1_js_i18n_js;
 const { formatNumber } = __m11_js_core_format_js;
 const { getHeroStats } = __m9_js_core_hero_js;
-const { keys, bestLevel, isUnlocked, levelReward, bossPreview, dungeonLayer, shards } = __m29_js_core_dungeon_js;
+const { keys, bestLevel, isUnlocked, levelReward, bossPreview, dungeonLayer, shards, relicLevel, relicCost } = __m29_js_core_dungeon_js;
 const { companionLevel } = __m17_js_core_companions_js;
 const { itemIconSvg, COMPANION_SVG } = __m18_js_ui_sprites_js;
 const { monsterSvg } = __m18_js_ui_sprites_js;
@@ -5183,10 +5207,18 @@ function dungeonsHtml(state) {
 function workshopHtml(state) {
   const have = shards(state);
   const pet = COMPANIONS.find((c) => c.unlockShards);
-  const items = SHARD_ITEMS.items.map((it) => `<div class="row">
-      <div class="tile plain">${itemIconSvg(it.slot, SHARD_ITEMS.rarity)}</div>
-      <div class="row-main"><b>${it.label}</b><span style="color:${RARITIES[SHARD_ITEMS.rarity].color}">${RARITIES[SHARD_ITEMS.rarity].name} · ${tr('úroveň podle nejhlubšího místa +{v}', { v: SHARD_ITEMS.levelBonus })}</span></div>
-      <button class="buy small" data-action="dg-craft" data-id="${it.id}" ${have >= SHARD_ITEMS.cost && !state.pendingItem ? '' : 'disabled'}>${ICON.shard}${SHARD_ITEMS.cost}</button></div>`).join('');
+  const items = RELICS.items.map((it) => {
+    const lv = relicLevel(state, it.id);
+    const eff = Object.values(RUNE_POLISH.effects).find((e) => e.stat === it.stat);
+    const val = (v) => `+${String(v).replace('.', ',')} ${eff.unit}`;
+    const info = lv ? `${eff.name} ${val(it.per * lv)}${lv < RELICS.max ? ` → ${val(it.per * (lv + 1))}` : ''}` : `${eff.name} ${val(it.per)}`;
+    const cost = relicCost(lv + 1);
+    const btn = lv >= RELICS.max ? `<span class="done-mark">max.</span>`
+      : `<button class="buy small" data-action="dg-relic" data-id="${it.id}" ${have >= cost ? '' : 'disabled'}>${ICON.shard}${cost}</button>`;
+    return `<div class="row ${lv ? '' : 'locked-soft'}">
+      <div class="tile plain relic-tile" style="--rc:${it.color}">${itemIconSvg(it.slot, lv ? 4 : 0)}</div>
+      <div class="row-main"><b>${it.label}${lv ? ` <span class="lv">${tr('úr.')} ${lv}/${RELICS.max}</span>` : ''}</b><span>${info}</span></div>${btn}</div>`;
+  }).join('');
   const petLv = companionLevel(state, pet.id);
   const petRow = `<div class="row ${petLv ? '' : 'locked-soft'}"><div class="tile plain cp-tile">${COMPANION_SVG[pet.id]}</div>
       <div class="row-main"><b>${pet.name}</b><span>${tr('mazlíček')} · ${pet.desc(Math.max(1, petLv))}${petLv ? ` · ${tr('vylepšíš v záložce Hrdina')}` : ''}</span></div>
@@ -5194,7 +5226,7 @@ function workshopHtml(state) {
         : `<button class="buy small" data-action="dg-pet" data-id="${pet.id}" ${have >= pet.unlockShards ? '' : 'disabled'}>${ICON.shard}${pet.unlockShards}</button>`}</div>`;
   return `<h4>${tr('Dílna útržků')}</h4>
     <div class="card"><div class="dg-shards">${ICON.shard}<span>${tr('Útržky prastaré výzbroje')}</span><b>${formatNumber(have)}</b></div>
-      <p class="note" style="margin-top:4px">${tr('Útržky mají menší šanci padnout při výhře v kobce i při rychlém vyčištění, na vyšších úrovních víc kusů.')}</p></div>
+      <p class="note" style="margin-top:4px">${tr('Útržky mají menší šanci padnout při výhře v kobce i při rychlém vyčištění, na vyšších úrovních víc kusů.')} ${tr('Relikvie jsou trvalé – nejsou to předměty, jen efekty se speciálními staty (platí navždy, i po znovuzrození).')}</p></div>
     <div class="card list dg-workshop">${petRow}${items}</div>`;
 }
 
@@ -5883,7 +5915,7 @@ const { canMergePending, forgeUpgradeOre } = __m10_js_core_forge_js;
 const { upgradeSlot, polishSlot } = __m8_js_core_slots_js;
 const { slotHtml } = __m35_js_ui_slotView_js;
 const { SLOTS, RARITIES } = __m2_js_config_js;
-const { refreshKeys, startDungeon, updateDungeon, sweepDungeon, buyKey, dungeonDef, craftShardItem } = __m29_js_core_dungeon_js;
+const { refreshKeys, startDungeon, updateDungeon, sweepDungeon, buyKey, dungeonDef, upgradeRelic } = __m29_js_core_dungeon_js;
 const { dungeonsHtml, dungeonRewardHtml } = __m36_js_ui_dungeonView_js;
 const { materialInfo } = __m26_js_ui_ingredientsView_js;
 const { forgeInfoHtml } = __m37_js_ui_forgeView_js;
@@ -6218,14 +6250,8 @@ function bindUi() {
     if (!b || b.disabled) return;
     const id = b.dataset.id;
     if (b.dataset.action === 'dg-fight') enterDungeon(id);
-    else if (b.dataset.action === 'dg-craft') {
-      const item = craftShardItem(state, id);
-      if (!item) { sfx.denied(); return; }
-      trackForge(item);
-      dungeons.classList.add('hidden');
-      saveState(state);
-      fx.anvilStrike(); sfx.anvil(); render(); fx.rarityReveal(item.rarity); sfx.reveal(item.rarity);
-      return;
+    else if (b.dataset.action === 'dg-relic') {
+      if (upgradeRelic(state, id)) { sfx.levelUp(); fx.bumpResource('power'); saveState(state); } else sfx.denied();
     } else if (b.dataset.action === 'dg-pet') {
       if (unlockCompanion(state, id)) { sfx.levelUp(); saveState(state); showToast(tr('Nový mazlíček!')); } else sfx.denied();
     }
