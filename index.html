@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="build" content="2026-11-05 00:59">
+  <meta name="build" content="2026-11-05 11:35">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0e1a22">
   <meta name="mobile-web-app-capable" content="yes">
@@ -1164,7 +1164,7 @@ const EN = {
   'Získej {v} dovednosti (Hrdina → Dovednosti)': 'Get {v} skills (Hero → Skills)',
   'Poraz bosse kobky na úrovni {v}': 'Beat a dungeon boss at level {v}',
   'Spusť výzkum': 'Start a research',
-  'Získej mazlíčka (vejce z kobek)': 'Get a pet (eggs from dungeons)',
+  'Vylíhni vejce (Hrdina → Mazlíčci)': 'Hatch an egg (Hero → Pets)',
   'Truhla z hlubin': 'Chest from the Depths',
   'Otevřít truhlu': 'Open the chest',
   'Klepni a otevři': 'Tap to open',
@@ -6753,7 +6753,7 @@ function goalText(g) {
     case 'skills': return tr('Získej {v} dovednosti (Hrdina → Dovednosti)', { v: g.n });
     case 'dungeon': return tr('Poraz bosse kobky na úrovni {v}', { v: g.n });
     case 'research': return tr('Spusť výzkum');
-    case 'pets': return tr('Získej mazlíčka (vejce z kobek)');
+    case 'pets': return tr('Vylíhni vejce (Hrdina → Mazlíčci)');
     default: return '';
   }
 }
