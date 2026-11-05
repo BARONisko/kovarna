@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="build" content="2026-11-04 23:59">
+  <meta name="build" content="2026-11-05 00:07">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0e1a22">
   <meta name="mobile-web-app-capable" content="yes">
@@ -619,6 +619,15 @@ body { display: flex; justify-content: center; }
 @media (prefers-reduced-motion: reduce) { .relic-orb { animation: none; } }
 .dg-workshop .row-main b { white-space: normal; overflow: visible; text-overflow: clip; }
 
+/* Dráček: ohnivý dech */
+.cp.dracek.breath { animation: cp-fly 2.2s ease-in-out infinite, dragon-breath .45s ease-out; }
+@keyframes dragon-breath { 0% { scale: 1; } 30% { scale: 1.25 .9; } 100% { scale: 1; } }
+.pet-flame { position: absolute; width: 16px; height: 16px; margin: -8px; border-radius: 50%;
+  background: radial-gradient(circle, #fff1c1 0 25%, #ffb347 45%, #ff5a1f 75%, transparent 76%);
+  box-shadow: 0 0 14px 6px rgba(255, 120, 40, .7); animation: pet-flame .3s ease-in forwards; }
+@keyframes pet-flame { 0% { transform: translate(0, 0) scale(.6); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(1.6); opacity: .9; } }
+.float-text.fire { color: #ff8a3d; font-size: 1.3rem; }
+
 </style>
 </head>
 <body>
@@ -982,9 +991,8 @@ const EN = {
   'Vzácnosti se odemykají': 'Rarity unlocks',
   'Lepší vzácnost začne padat až od určité úrovně kovárny a s dalšími úrovněmi je častější. Přísady (vpravo od KOVAT) šance ještě zvýší, ale zamčenou vzácnost neodemknou.': 'Better rarities only drop from a certain forge level and get more common with each level. Ingredients (right of FORGE) raise the odds further, but cannot unlock a locked rarity.',
   // Útržky a mazlíček
-  'Dráček Uhlík': 'Ember the Dragonling', '+{v} % odměn z kobek': '+{v} % dungeon rewards', 'Nový mazlíček!': 'New pet!', 'útržky!': 'shards!',
-  'Útržky prastaré výzbroje': 'Ancient gear shards', 'mazlíček': 'pet',
-  'vylepšíš v záložce Hrdina': 'upgrade it in the Hero tab', 'Dílna útržků': 'Shard workshop', 'za {v} útržků z kobek': 'for {v} dungeon shards',
+  'Dráček Uhlík': 'Ember the Dragonling', 'Nový mazlíček!': 'New pet!', 'útržky!': 'shards!',
+  'Útržky prastaré výzbroje': 'Ancient gear shards', 'mazlíček': 'pet', '+{v} % odměn z kobek, každých {v2} s plivne oheň za {v3} % útoku': '+{v} % dungeon rewards, breathes fire every {v2} s for {v3} % of attack', 'Dílna útržků': 'Shard workshop', 'za {v} útržků z kobek': 'for {v} dungeon shards',
   'Útržky mají menší šanci padnout při výhře v kobce i při rychlém vyčištění, na vyšších úrovních víc kusů.': 'Shards have a small chance to drop when you win a dungeon or quick-clear it; higher levels drop more.',
   'Prsten zlatého golema': 'Ring of the Golden Golem', 'Helma důlního obra': 'Helm of the Mine Giant', 'Krunýř krystalového pavouka': 'Crystal Spider Carapace',
   'Relikvie jsou trvalé – nejsou to předměty, jen efekty se speciálními staty (platí navždy, i po znovuzrození).': 'Relics are permanent – not items, just effects with special stats (they last forever, even after rebirth).',
@@ -1430,9 +1438,17 @@ const COMPANIONS = [
     desc: (l) => tr('{v} % šance, že kování nespotřebuje uhlí', { v: l * 3 }), max: 10 },
   { id: 'krtek', get name() { return tr('Krtek Rypák'); }, unlockDepth: 55, unlockDiamonds: 450, material: 'jil',
     desc: (l) => tr('+{v} % surovin hlubin a rudy', { v: l * 12 }), max: 10 },
-  { id: 'dracek', get name() { return tr('Dráček Uhlík'); }, unlockDepth: Infinity, unlockShards: 30, material: 'kristal',
-    desc: (l) => tr('+{v} % odměn z kobek', { v: l * 10 }), max: 10 },
+  { id: 'dracek', get name() { return tr('Dráček Uhlík'); }, unlockDepth: Infinity, unlockShards: 30, material: 'kristal', shardUpgrades: true,
+    desc: (l) => tr('+{v} % odměn z kobek, každých {v2} s plivne oheň za {v3} % útoku', { v: l * 10, v2: PET.interval, v3: Math.round((PET.fireBase + PET.firePerLevel * (l - 1)) * 100) }), max: 10 },
 ];
+// Dráček Uhlík: ohnivý dech v boji (i v kobkách a offline) a vylepšení za útržky
+const PET = {
+  interval: 5,            // sekundy mezi plivnutími
+  fireBase: 0.6,          // poškození = útok hrdiny × (fireBase + firePerLevel × (úroveň - 1))
+  firePerLevel: 0.15,
+  upgradeShardsBase: 15,  // cena úrovně L→L+1 = base + step × (L - 1) útržků
+  upgradeShardsStep: 5,
+};
 const COMPANION_COST = { materialBase: 10, goldBase: 200, goldGrowth: 1.9 };
 
 // ---------------------------------------------------------------------
@@ -1530,7 +1546,7 @@ const MERCHANT = {
   oreRate: 4,                // 1 kus suroviny hlubin → 4 rudy
 };
 
-return { SAVE, RARITIES, SLOTS, STATS, ITEMS, ITEM_NAMES, HERO, CURRENCIES, MATERIALS, FORGE, DEPTH, LAYERS, COMBAT, DUNGEON, RELICS, DUNGEONS, COAL, WEAPON_SHAPES, MATERIAL_DROP, SHOP, LEGENDS, OFFLINE, PRESTIGE, RUNE_UPGRADES, QUEST_POOL, LOGIN_REWARDS, DIAMONDS, INGREDIENTS, MERGE, COMPANIONS, COMPANION_COST, EVENTS, PREMIUM, COSMETICS, PASS, SLOT_UPGRADE, RUNE_POLISH, MERCHANT };
+return { SAVE, RARITIES, SLOTS, STATS, ITEMS, ITEM_NAMES, HERO, CURRENCIES, MATERIALS, FORGE, DEPTH, LAYERS, COMBAT, DUNGEON, RELICS, DUNGEONS, COAL, WEAPON_SHAPES, MATERIAL_DROP, SHOP, LEGENDS, OFFLINE, PRESTIGE, RUNE_UPGRADES, QUEST_POOL, LOGIN_REWARDS, DIAMONDS, INGREDIENTS, MERGE, COMPANIONS, PET, COMPANION_COST, EVENTS, PREMIUM, COSMETICS, PASS, SLOT_UPGRADE, RUNE_POLISH, MERCHANT };
 })();
 
 // ===== js/core/rng.js =====
@@ -2230,18 +2246,124 @@ function formatNumber(n) {
 return { formatNumber };
 })();
 
+// ===== js/core/companions.js =====
+const __m12_js_core_companions_js = (() => {
+const { COMPANIONS, COMPANION_COST, PET } = __m2_js_config_js;
+const { addBonusProvider } = __m7_js_core_bonuses_js;
+const { depthIndex } = __m4_js_core_items_js;
+// Pomocníci: Havran (zlato), Skřítek (šetří uhlí), Krtek (suroviny). Žádné DOM.
+
+
+
+function companionLevel(state, id) {
+  return state.companions?.[id] ?? 0; // 0 = neodemčený
+}
+
+function bestDepth(state) {
+  return Math.max(state.prestige?.bestDepth ?? 0, depthIndex({ layer: state.progress.maxLayer, wave: state.progress.maxWave }));
+}
+
+function canUnlockFree(state, c) {
+  if (c.unlockShards) return (state.dungeons?.shards ?? 0) >= c.unlockShards;
+  return bestDepth(state) >= c.unlockDepth;
+}
+
+function unlockCompanion(state, id, withDiamonds = false) {
+  const c = COMPANIONS.find((x) => x.id === id);
+  if (!c || companionLevel(state, id) > 0) return false;
+  if (c.unlockShards) {
+    if (!canUnlockFree(state, c)) return false;
+    state.dungeons.shards -= c.unlockShards;
+  } else if (!canUnlockFree(state, c)) {
+    if (!withDiamonds || state.diamonds < c.unlockDiamonds) return false;
+    state.diamonds -= c.unlockDiamonds;
+  }
+  state.companions[id] = 1;
+  return true;
+}
+
+function companionUpgradeCost(c, level) {
+  if (c.shardUpgrades) return { shards: PET.upgradeShardsBase + PET.upgradeShardsStep * (level - 1), material: 0, gold: 0 };
+  return {
+    material: COMPANION_COST.materialBase * level,
+    gold: Math.round(COMPANION_COST.goldBase * Math.pow(COMPANION_COST.goldGrowth, level - 1)),
+  };
+}
+
+function upgradeCompanion(state, id) {
+  const c = COMPANIONS.find((x) => x.id === id);
+  const lv = companionLevel(state, id);
+  if (!c || lv < 1 || lv >= c.max) return false;
+  const cost = companionUpgradeCost(c, lv);
+  if (cost.shards) {
+    if ((state.dungeons?.shards ?? 0) < cost.shards) return false;
+    state.dungeons.shards -= cost.shards;
+    state.companions[id] = lv + 1;
+    return true;
+  }
+  if ((state.materials[c.material] ?? 0) < cost.material || state.gold < cost.gold) return false;
+  state.materials[c.material] -= cost.material;
+  state.gold -= cost.gold;
+  state.companions[id] = lv + 1;
+  return true;
+}
+
+// Bonusy pomocníků
+addBonusProvider((state, b) => {
+  const h = companionLevel(state, 'havran');
+  const s = companionLevel(state, 'skritek');
+  const k = companionLevel(state, 'krtek');
+  b.goldMult *= 1 + 0.10 * h;
+  b.coalSaveChance = (b.coalSaveChance ?? 0) + 0.03 * s;
+  b.materialMult *= 1 + 0.12 * k;
+  b.oreMult *= 1 + 0.12 * k;
+  b.dungeonMult = (b.dungeonMult ?? 1) * (1 + 0.10 * companionLevel(state, 'dracek'));
+});
+
+return { companionLevel, canUnlockFree, unlockCompanion, companionUpgradeCost, upgradeCompanion };
+})();
+
+// ===== js/core/pet.js =====
+const __m13_js_core_pet_js = (() => {
+const { PET } = __m2_js_config_js;
+const { companionLevel } = __m12_js_core_companions_js;
+// Dráček Uhlík v boji: každých PET.interval sekund plivne oheň na příšeru. Žádné DOM.
+
+
+function petFireDamage(state, heroAttack) {
+  const lv = companionLevel(state, 'dracek');
+  if (!lv) return 0;
+  return Math.max(1, Math.round(heroAttack * (PET.fireBase + PET.firePerLevel * (lv - 1))));
+}
+
+// Volá se ve fázi boje (hlavní boj i kobka). Přidá událost { type: 'petFire', dmg }.
+function petTick(state, battle, monster, heroAttack, dt, events) {
+  const dmg = petFireDamage(state, heroAttack);
+  if (!dmg) return;
+  battle.petTimer = (battle.petTimer ?? 0) + dt;
+  if (battle.petTimer < PET.interval) return;
+  battle.petTimer -= PET.interval;
+  monster.hp = Math.max(0, monster.hp - dmg);
+  events.push({ type: 'petFire', dmg });
+}
+
+return { petFireDamage, petTick };
+})();
+
 // ===== js/core/combat.js =====
-const __m12_js_core_combat_js = (() => {
+const __m14_js_core_combat_js = (() => {
 const { COMBAT, DEPTH } = __m2_js_config_js;
 const { getLayer } = __m5_js_core_layers_js;
 const { getBonuses } = __m7_js_core_bonuses_js;
 const { getHeroStats } = __m9_js_core_hero_js;
 const { depthIndex } = __m4_js_core_items_js;
 const { pick } = __m3_js_core_rng_js;
+const { petTick } = __m13_js_core_pet_js;
 // Automatický boj: hrdina vs. příšery, vlny, odměny, postup hloubkou. Žádné DOM.
 //
 // Průběh boje (battle) se neukládá – po načtení hry začíná aktuální vlna znovu.
 // Trvale se ukládá jen state.progress, state.gold a statistiky.
+
 
 
 
@@ -2375,6 +2497,7 @@ function updateCombat(state, battle, dt) {
     if (hero.lifesteal > 0) battle.heroHp = Math.min(battle.heroMax, battle.heroHp + dmg * hero.lifesteal);
     events.push({ type: 'heroHit', dmg, crit });
   }
+  if (m.hp > 0) petTick(state, battle, m, hero.attack, dt, events);
 
   if (m.hp <= 0) {
     const gold = Math.round(m.gold * getBonuses(state).goldMult);
@@ -2422,7 +2545,7 @@ return { isBossWave, monstersInWave, createMonster, createBattle, updateCombat }
 })();
 
 // ===== js/core/coal.js =====
-const __m13_js_core_coal_js = (() => {
+const __m15_js_core_coal_js = (() => {
 const { COAL } = __m2_js_config_js;
 const { getBonuses } = __m7_js_core_bonuses_js;
 // Uhlí: omezuje kování. Dobíjí se po minutách (i offline), padá z příšer. Žádné DOM.
@@ -2477,7 +2600,7 @@ return { tickCoal, coalMax, canAffordForge, spendForgeCoal, secondsToNextCoal, r
 })();
 
 // ===== js/core/quests.js =====
-const __m14_js_core_quests_js = (() => {
+const __m16_js_core_quests_js = (() => {
 const { QUEST_POOL, LOGIN_REWARDS, DIAMONDS, COMBAT } = __m2_js_config_js;
 const { depthIndex } = __m4_js_core_items_js;
 // Denní a týdenní úkoly, odměna za přihlášení, diamanty za první porážku bosse. Žádné DOM.
@@ -2634,7 +2757,7 @@ return { dayKey, weekKey, refreshQuests, questDef, track, resolveReward, grant, 
 })();
 
 // ===== js/core/ingredients.js =====
-const __m15_js_core_ingredients_js = (() => {
+const __m17_js_core_ingredients_js = (() => {
 const { INGREDIENTS } = __m2_js_config_js;
 // Vhazování surovin do kovadliny – mění šance na druh a vzácnost předmětu. Žádné DOM.
 
@@ -2689,7 +2812,7 @@ return { sockets, activeIngredients, missingIngredients, ingredientModifiers, co
 })();
 
 // ===== js/core/prestige.js =====
-const __m16_js_core_prestige_js = (() => {
+const __m18_js_core_prestige_js = (() => {
 const { PRESTIGE, RUNE_UPGRADES, DEPTH } = __m2_js_config_js;
 const { depthIndex } = __m4_js_core_items_js;
 const { createNewState } = __m6_js_core_state_js;
@@ -2762,78 +2885,8 @@ function applyStart(state) {
 return { runDepth, runesForDepth, canPrestige, runeUpgradeCost, buyRuneUpgrade, doPrestige, applyStart };
 })();
 
-// ===== js/core/companions.js =====
-const __m17_js_core_companions_js = (() => {
-const { COMPANIONS, COMPANION_COST } = __m2_js_config_js;
-const { addBonusProvider } = __m7_js_core_bonuses_js;
-const { depthIndex } = __m4_js_core_items_js;
-// Pomocníci: Havran (zlato), Skřítek (šetří uhlí), Krtek (suroviny). Žádné DOM.
-
-
-
-function companionLevel(state, id) {
-  return state.companions?.[id] ?? 0; // 0 = neodemčený
-}
-
-function bestDepth(state) {
-  return Math.max(state.prestige?.bestDepth ?? 0, depthIndex({ layer: state.progress.maxLayer, wave: state.progress.maxWave }));
-}
-
-function canUnlockFree(state, c) {
-  if (c.unlockShards) return (state.dungeons?.shards ?? 0) >= c.unlockShards;
-  return bestDepth(state) >= c.unlockDepth;
-}
-
-function unlockCompanion(state, id, withDiamonds = false) {
-  const c = COMPANIONS.find((x) => x.id === id);
-  if (!c || companionLevel(state, id) > 0) return false;
-  if (c.unlockShards) {
-    if (!canUnlockFree(state, c)) return false;
-    state.dungeons.shards -= c.unlockShards;
-  } else if (!canUnlockFree(state, c)) {
-    if (!withDiamonds || state.diamonds < c.unlockDiamonds) return false;
-    state.diamonds -= c.unlockDiamonds;
-  }
-  state.companions[id] = 1;
-  return true;
-}
-
-function companionUpgradeCost(c, level) {
-  return {
-    material: COMPANION_COST.materialBase * level,
-    gold: Math.round(COMPANION_COST.goldBase * Math.pow(COMPANION_COST.goldGrowth, level - 1)),
-  };
-}
-
-function upgradeCompanion(state, id) {
-  const c = COMPANIONS.find((x) => x.id === id);
-  const lv = companionLevel(state, id);
-  if (!c || lv < 1 || lv >= c.max) return false;
-  const cost = companionUpgradeCost(c, lv);
-  if ((state.materials[c.material] ?? 0) < cost.material || state.gold < cost.gold) return false;
-  state.materials[c.material] -= cost.material;
-  state.gold -= cost.gold;
-  state.companions[id] = lv + 1;
-  return true;
-}
-
-// Bonusy pomocníků
-addBonusProvider((state, b) => {
-  const h = companionLevel(state, 'havran');
-  const s = companionLevel(state, 'skritek');
-  const k = companionLevel(state, 'krtek');
-  b.goldMult *= 1 + 0.10 * h;
-  b.coalSaveChance = (b.coalSaveChance ?? 0) + 0.03 * s;
-  b.materialMult *= 1 + 0.12 * k;
-  b.oreMult *= 1 + 0.12 * k;
-  b.dungeonMult = (b.dungeonMult ?? 1) * (1 + 0.10 * companionLevel(state, 'dracek'));
-});
-
-return { companionLevel, canUnlockFree, unlockCompanion, companionUpgradeCost, upgradeCompanion };
-})();
-
 // ===== js/ui/sprites.js =====
-const __m18_js_ui_sprites_js = (() => {
+const __m19_js_ui_sprites_js = (() => {
 const { RARITIES, WEAPON_SHAPES } = __m2_js_config_js;
 // Kreslení postav, příšer, zbraní, ikon předmětů a pozadí – ploché SVG bez obrysů (návrh C).
 // Jen vrací řetězce SVG; stav hry nemění.
@@ -3141,7 +3194,7 @@ return { rarityColor, weaponShape, weaponSvg, itemIconSvg, heroSvg, monsterSvg, 
 })();
 
 // ===== js/core/loot.js =====
-const __m19_js_core_loot_js = (() => {
+const __m20_js_core_loot_js = (() => {
 const { MATERIAL_DROP } = __m2_js_config_js;
 const { getLayer } = __m5_js_core_layers_js;
 const { getBonuses } = __m7_js_core_bonuses_js;
@@ -3163,11 +3216,11 @@ return { rollMaterialDrop };
 })();
 
 // ===== js/core/offline.js =====
-const __m20_js_core_offline_js = (() => {
+const __m21_js_core_offline_js = (() => {
 const { OFFLINE, DEPTH } = __m2_js_config_js;
-const { createBattle, updateCombat } = __m12_js_core_combat_js;
-const { rollCoalDrop } = __m13_js_core_coal_js;
-const { rollMaterialDrop } = __m19_js_core_loot_js;
+const { createBattle, updateCombat } = __m14_js_core_combat_js;
+const { rollCoalDrop } = __m15_js_core_coal_js;
+const { rollMaterialDrop } = __m20_js_core_loot_js;
 const { depthIndex } = __m4_js_core_items_js;
 const { getBonuses } = __m7_js_core_bonuses_js;
 // Offline postup: dopočítá boj za dobu, kdy byla hra zavřená. Žádné DOM.
@@ -3218,11 +3271,11 @@ return { simulateOffline };
 })();
 
 // ===== js/core/premium.js =====
-const __m21_js_core_premium_js = (() => {
+const __m22_js_core_premium_js = (() => {
 const { PREMIUM, COSMETICS, RARITIES } = __m2_js_config_js;
 const { getBonuses, addBonusProvider } = __m7_js_core_bonuses_js;
 const { forgeItem } = __m10_js_core_forge_js;
-const { simulateOffline } = __m20_js_core_offline_js;
+const { simulateOffline } = __m21_js_core_offline_js;
 // Diamantový obchod: doplnění uhlí, zrychlení, okamžitý postup, truhla, automatické kování, kosmetika.
 // Pravidlo: diamanty urychlují a dávají pohodlí, NEKUPUJÍ sílu přímo. Žádné DOM.
 
@@ -3318,9 +3371,9 @@ return { refillCoal, speedLeft, buySpeed, instantPrice, buyInstant, chestPityLef
 })();
 
 // ===== js/core/pass.js =====
-const __m22_js_core_pass_js = (() => {
+const __m23_js_core_pass_js = (() => {
 const { PASS } = __m2_js_config_js;
-const { resolveReward, grant } = __m14_js_core_quests_js;
+const { resolveReward, grant } = __m16_js_core_quests_js;
 // Kovářský průkaz – 30denní sezóna. Body za úkoly a bosse, odměny zdarma i prémiové. Žádné DOM.
 
 
@@ -3383,7 +3436,7 @@ return { seasonIndex, seasonEnds, refreshPass, passLevel, addPassXp, buyPremiumP
 })();
 
 // ===== js/core/shop.js =====
-const __m23_js_core_shop_js = (() => {
+const __m24_js_core_shop_js = (() => {
 const { SHOP, COMBAT, RARITIES, MERCHANT, LAYERS } = __m2_js_config_js;
 const { depthIndex } = __m4_js_core_items_js;
 const { forgeItem } = __m10_js_core_forge_js;
@@ -3473,7 +3526,7 @@ return { coalPackPrice, buyCoalPack, chestPrice, buyChest, materialPackPrice, bu
 })();
 
 // ===== js/ui/icons.js =====
-const __m24_js_ui_icons_js = (() => {
+const __m25_js_ui_icons_js = (() => {
 
 // Malé ploché ikony UI (místo emoji). Vrací řetězce SVG.
 
@@ -3517,25 +3570,25 @@ return { ICON, NAV_ICONS, ANVIL };
 })();
 
 // ===== js/ui/tabs.js =====
-const __m25_js_ui_tabs_js = (() => {
+const __m26_js_ui_tabs_js = (() => {
 const { SLOTS, RARITIES, STATS, LAYERS, SHOP, COAL, RUNE_UPGRADES, PRESTIGE } = __m2_js_config_js;
-const { runDepth, runesForDepth, canPrestige, runeUpgradeCost } = __m16_js_core_prestige_js;
+const { runDepth, runesForDepth, canPrestige, runeUpgradeCost } = __m18_js_core_prestige_js;
 const { COMPANIONS } = __m2_js_config_js;
-const { companionLevel, canUnlockFree, companionUpgradeCost } = __m17_js_core_companions_js;
-const { COMPANION_SVG } = __m18_js_ui_sprites_js;
+const { companionLevel, canUnlockFree, companionUpgradeCost } = __m12_js_core_companions_js;
+const { COMPANION_SVG } = __m19_js_ui_sprites_js;
 const { PREMIUM, COSMETICS, PASS } = __m2_js_config_js;
-const { cosmeticColors, cosmeticOwned, speedLeft, instantPrice, chestPityLeft } = __m21_js_core_premium_js;
-const { passLevel, passClaimable } = __m22_js_core_pass_js;
+const { cosmeticColors, cosmeticOwned, speedLeft, instantPrice, chestPityLeft } = __m22_js_core_premium_js;
+const { passLevel, passClaimable } = __m23_js_core_pass_js;
 const { getLayer } = __m5_js_core_layers_js;
 const { getHeroStats } = __m9_js_core_hero_js;
 const { itemPower } = __m4_js_core_items_js;
 const { formatNumber } = __m11_js_core_format_js;
-const { coalPackPrice, chestPrice, materialPackPrice, orePackPrice } = __m23_js_core_shop_js;
+const { coalPackPrice, chestPrice, materialPackPrice, orePackPrice } = __m24_js_core_shop_js;
 const { MERCHANT } = __m2_js_config_js;
 const { runeCombatStats } = __m8_js_core_slots_js;
-const { coalMax } = __m13_js_core_coal_js;
-const { heroSvg, itemIconSvg, rarityColor } = __m18_js_ui_sprites_js;
-const { ICON } = __m24_js_ui_icons_js;
+const { coalMax } = __m15_js_core_coal_js;
+const { heroSvg, itemIconSvg, rarityColor } = __m19_js_ui_sprites_js;
+const { ICON } = __m25_js_ui_icons_js;
 const { tr, locale, plural } = __m1_js_i18n_js;
 const { itemName } = __m4_js_core_items_js;
 // Obsah záložek spodního menu: Obchod, Hrdina, Suroviny, Legendy.
@@ -3758,8 +3811,8 @@ function companionsHtml(state) {
       action = `<span class="done-mark">max.</span>`;
     } else {
       const cost = companionUpgradeCost(c, lv);
-      const ok = (state.materials[c.material] ?? 0) >= cost.material && state.gold >= cost.gold;
-      action = `<button class="buy small col" data-action="cp-up" data-id="${c.id}" ${ok ? '' : 'disabled'}><span>${formatNumber(cost.material)} ${matName}</span><span>${ICON.gold}${formatNumber(cost.gold)}</span></button>`;
+      const ok = cost.shards ? (state.dungeons?.shards ?? 0) >= cost.shards : (state.materials[c.material] ?? 0) >= cost.material && state.gold >= cost.gold;
+      action = cost.shards ? `<button class="buy small" data-action="cp-up" data-id="${c.id}" ${ok ? '' : 'disabled'}>${ICON.shard}${cost.shards}</button>` : `<button class="buy small col" data-action="cp-up" data-id="${c.id}" ${ok ? '' : 'disabled'}><span>${formatNumber(cost.material)} ${matName}</span><span>${ICON.gold}${formatNumber(cost.gold)}</span></button>`;
     }
     const info = lv === 0
       ? `${c.desc(1)} · ${c.unlockShards ? tr('za {v} útržků z kobek', { v: c.unlockShards }) : tr('zdarma od hloubky {v}', { v: c.unlockDepth })}`
@@ -3883,16 +3936,16 @@ return { gemSvg, merchantSel, runeSvg, renderTab };
 })();
 
 // ===== js/ui/ingredientsView.js =====
-const __m26_js_ui_ingredientsView_js = (() => {
+const __m27_js_ui_ingredientsView_js = (() => {
 const { INGREDIENTS, RARITIES, SLOTS, FORGE } = __m2_js_config_js;
 const { tr, locale, plural } = __m1_js_i18n_js;
 const { getLayer } = __m5_js_core_layers_js;
 const { formatNumber } = __m11_js_core_format_js;
-const { sockets, activeIngredients, ingredientModifiers } = __m15_js_core_ingredients_js;
+const { sockets, activeIngredients, ingredientModifiers } = __m17_js_core_ingredients_js;
 const { currentRarityWeights, isForgeMaxed } = __m10_js_core_forge_js;
 const { rarityChances, slotWeights, rarityWeights } = __m4_js_core_items_js;
 const { getBonuses } = __m7_js_core_bonuses_js;
-const { gemSvg } = __m25_js_ui_tabs_js;
+const { gemSvg } = __m26_js_ui_tabs_js;
 // Okno Přísady: vhazování surovin do kovadliny + šance na vzácnost a druh předmětu. Jen vykreslení.
 
 
@@ -3973,13 +4026,13 @@ return { materialInfo, ingredientsHtml };
 })();
 
 // ===== js/ui/itemView.js =====
-const __m27_js_ui_itemView_js = (() => {
+const __m28_js_ui_itemView_js = (() => {
 const { STATS } = __m2_js_config_js;
 const { getRarity, getSlot, itemName } = __m4_js_core_items_js;
 const { tr } = __m1_js_i18n_js;
 const { formatNumber } = __m11_js_core_format_js;
-const { itemIconSvg } = __m18_js_ui_sprites_js;
-const { ICON } = __m24_js_ui_icons_js;
+const { itemIconSvg } = __m19_js_ui_sprites_js;
+const { ICON } = __m25_js_ui_icons_js;
 // Společné HTML pro zobrazení předmětu (porovnání, později sbírka…).
 
 
@@ -4050,7 +4103,7 @@ return { starsHtml, diffHtml, itemCardHtml, emptySlotCardHtml, rewardText };
 })();
 
 // ===== js/core/events.js =====
-const __m28_js_core_events_js = (() => {
+const __m29_js_core_events_js = (() => {
 const { EVENTS } = __m2_js_config_js;
 const { addBonusProvider } = __m7_js_core_bonuses_js;
 // Eventy podle dne v týdnu – jednoduché bonusy, které střídají rytmus hry. Žádné DOM.
@@ -4081,16 +4134,18 @@ return { activeEvent, eventEnds };
 })();
 
 // ===== js/core/dungeon.js =====
-const __m29_js_core_dungeon_js = (() => {
+const __m30_js_core_dungeon_js = (() => {
 const { COMBAT, DUNGEON, DUNGEONS, LAYERS, RELICS } = __m2_js_config_js;
 const { getBonuses } = __m7_js_core_bonuses_js;
 const { getHeroStats } = __m9_js_core_hero_js;
 const { getLayer } = __m5_js_core_layers_js;
-const { dayKey } = __m14_js_core_quests_js;
+const { dayKey } = __m16_js_core_quests_js;
 const { pick } = __m3_js_core_rng_js;
+const { petTick } = __m13_js_core_pet_js;
 // Kobky: souboj s bossem po úrovních za klíče. Odměna podle úrovně (suroviny, ne staty).
 // Stav v state.dungeons: { dayKey, keys: {id: n}, levels: {id: nejvyšší poražená úroveň} }.
 // Průběh souboje (fight) se neukládá. Žádné DOM.
+
 
 
 
@@ -4256,6 +4311,7 @@ function updateDungeon(state, f, dt) {
     if (hero.lifesteal > 0) f.heroHp = Math.min(f.heroMax, f.heroHp + dmg * hero.lifesteal);
     events.push({ type: 'heroHit', dmg, crit });
   }
+  if (m.hp > 0) petTick(state, f, m, hero.attack, dt, events);
 
   if (m.hp <= 0) {
     f.result = 'win';
@@ -4293,7 +4349,7 @@ return { dungeonDef, refreshKeys, keys, bestLevel, totalKeys, isUnlocked, buyKey
 })();
 
 // ===== js/ui/render.js =====
-const __m30_js_ui_render_js = (() => {
+const __m31_js_ui_render_js = (() => {
 const { SLOTS, DEPTH, RARITIES, FORGE, COAL, RELICS } = __m2_js_config_js;
 const { getLayer } = __m5_js_core_layers_js;
 const { tr } = __m1_js_i18n_js;
@@ -4303,19 +4359,19 @@ const { slotLevel, slotRune } = __m8_js_core_slots_js;
 const { xpForNextLevel, smeltReward, isForgeXpFull, isForgeMaxed, forgeUpgradeCost, currentRarityWeights, canMergePending, mergePreview } = __m10_js_core_forge_js;
 const { formatNumber } = __m11_js_core_format_js;
 const { compareItems, rarityChances, rarityWeights, itemPower } = __m4_js_core_items_js;
-const { monstersInWave } = __m12_js_core_combat_js;
-const { secondsToNextCoal, coalMax } = __m13_js_core_coal_js;
-const { claimableCount } = __m14_js_core_quests_js;
-const { sockets, missingIngredients } = __m15_js_core_ingredients_js;
-const { gemSvg } = __m25_js_ui_tabs_js;
-const { materialInfo } = __m26_js_ui_ingredientsView_js;
-const { itemCardHtml, emptySlotCardHtml, rewardText } = __m27_js_ui_itemView_js;
-const { heroSvg, itemIconSvg, COMPANION_SVG } = __m18_js_ui_sprites_js;
-const { activeEvent, eventEnds } = __m28_js_core_events_js;
-const { companionLevel } = __m17_js_core_companions_js;
-const { cosmeticColors } = __m21_js_core_premium_js;
-const { ICON, NAV_ICONS, ANVIL } = __m24_js_ui_icons_js;
-const { totalKeys } = __m29_js_core_dungeon_js;
+const { monstersInWave } = __m14_js_core_combat_js;
+const { secondsToNextCoal, coalMax } = __m15_js_core_coal_js;
+const { claimableCount } = __m16_js_core_quests_js;
+const { sockets, missingIngredients } = __m17_js_core_ingredients_js;
+const { gemSvg } = __m26_js_ui_tabs_js;
+const { materialInfo } = __m27_js_ui_ingredientsView_js;
+const { itemCardHtml, emptySlotCardHtml, rewardText } = __m28_js_ui_itemView_js;
+const { heroSvg, itemIconSvg, COMPANION_SVG } = __m19_js_ui_sprites_js;
+const { activeEvent, eventEnds } = __m29_js_core_events_js;
+const { companionLevel } = __m12_js_core_companions_js;
+const { cosmeticColors } = __m22_js_core_premium_js;
+const { ICON, NAV_ICONS, ANVIL } = __m25_js_ui_icons_js;
+const { totalKeys } = __m30_js_core_dungeon_js;
 // Vykreslení stavu hry do DOM. Jen čte stav, nic v něm nemění.
 
 
@@ -4614,7 +4670,7 @@ return { buildStatic, renderCoal, renderBattle, animateAttack, renderPendingItem
 })();
 
 // ===== js/ui/scenery.js =====
-const __m31_js_ui_scenery_js = (() => {
+const __m32_js_ui_scenery_js = (() => {
 
 // Pozadí jeskyně – proměnlivé: každá vrstva pozadí je pás několika RŮZNÝCH dlaždic
 // (krápníky, skály, krystaly, pochodně, rekvizity podle prostředí), takže se při chůzi
@@ -4809,11 +4865,11 @@ return { TILE, STRIP_TILES, sceneStrip };
 })();
 
 // ===== js/ui/battleView.js =====
-const __m32_js_ui_battleView_js = (() => {
+const __m33_js_ui_battleView_js = (() => {
 const { getLayer } = __m5_js_core_layers_js;
-const { dungeonDef } = __m29_js_core_dungeon_js;
-const { monsterSvg } = __m18_js_ui_sprites_js;
-const { sceneStrip, TILE, STRIP_TILES } = __m31_js_ui_scenery_js;
+const { dungeonDef } = __m30_js_core_dungeon_js;
+const { monsterSvg } = __m19_js_ui_sprites_js;
+const { sceneStrip, TILE, STRIP_TILES } = __m32_js_ui_scenery_js;
 // Živá scéna boje: paralaxa pozadí, chůze hrdiny, příchod příšer, pád poražených.
 // Jen zobrazení – čte state/battle z core, nic v nich nemění.
 
@@ -4947,12 +5003,12 @@ return { updateBattleView, resetBattleView };
 })();
 
 // ===== js/ui/questsView.js =====
-const __m33_js_ui_questsView_js = (() => {
+const __m34_js_ui_questsView_js = (() => {
 const { LOGIN_REWARDS, QUEST_POOL } = __m2_js_config_js;
 const { tr, locale, plural } = __m1_js_i18n_js;
 const { formatNumber } = __m11_js_core_format_js;
-const { questDef, resolveReward, loginDayToClaim, canClaimDailyBonus } = __m14_js_core_quests_js;
-const { ICON } = __m24_js_ui_icons_js;
+const { questDef, resolveReward, loginDayToClaim, canClaimDailyBonus } = __m16_js_core_quests_js;
+const { ICON } = __m25_js_ui_icons_js;
 // Okno Úkoly: odměna za přihlášení, denní a týdenní úkoly. Jen vykreslení.
 
 
@@ -5018,13 +5074,13 @@ return { questsHtml };
 })();
 
 // ===== js/ui/passView.js =====
-const __m34_js_ui_passView_js = (() => {
+const __m35_js_ui_passView_js = (() => {
 const { PASS } = __m2_js_config_js;
 const { tr, locale, plural } = __m1_js_i18n_js;
 const { formatNumber } = __m11_js_core_format_js;
-const { passLevel, seasonEnds } = __m22_js_core_pass_js;
-const { resolveReward } = __m14_js_core_quests_js;
-const { ICON } = __m24_js_ui_icons_js;
+const { passLevel, seasonEnds } = __m23_js_core_pass_js;
+const { resolveReward } = __m16_js_core_quests_js;
+const { ICON } = __m25_js_ui_icons_js;
 // Okno Kovářský průkaz – řada odměn zdarma a prémiová. Jen vykreslení.
 
 
@@ -5070,15 +5126,15 @@ return { passHtml };
 })();
 
 // ===== js/ui/slotView.js =====
-const __m35_js_ui_slotView_js = (() => {
+const __m36_js_ui_slotView_js = (() => {
 const { SLOTS, SLOT_UPGRADE, RUNE_POLISH } = __m2_js_config_js;
 const { tr, locale, plural } = __m1_js_i18n_js;
 const { formatNumber } = __m11_js_core_format_js;
 const { slotLevel, slotUpgradeCost, slotRune, polishCost, runeEffectText } = __m8_js_core_slots_js;
-const { itemCardHtml, emptySlotCardHtml } = __m27_js_ui_itemView_js;
-const { materialInfo } = __m26_js_ui_ingredientsView_js;
-const { gemSvg } = __m25_js_ui_tabs_js;
-const { ICON } = __m24_js_ui_icons_js;
+const { itemCardHtml, emptySlotCardHtml } = __m28_js_ui_itemView_js;
+const { materialInfo } = __m27_js_ui_ingredientsView_js;
+const { gemSvg } = __m26_js_ui_tabs_js;
+const { ICON } = __m25_js_ui_icons_js;
 // Okno slotu: předmět, vylepšení slotu za zlato a runové obroušení surovinou hlubin. Jen vykreslení.
 
 
@@ -5133,16 +5189,16 @@ return { slotHtml };
 })();
 
 // ===== js/ui/dungeonView.js =====
-const __m36_js_ui_dungeonView_js = (() => {
+const __m37_js_ui_dungeonView_js = (() => {
 const { DUNGEON, DUNGEONS, LAYERS, RELICS, RUNE_POLISH, COMPANIONS } = __m2_js_config_js;
 const { tr } = __m1_js_i18n_js;
 const { formatNumber } = __m11_js_core_format_js;
 const { getHeroStats } = __m9_js_core_hero_js;
-const { keys, bestLevel, isUnlocked, levelReward, bossPreview, dungeonLayer, shards, relicLevel, relicCost } = __m29_js_core_dungeon_js;
-const { companionLevel } = __m17_js_core_companions_js;
-const { itemIconSvg, COMPANION_SVG } = __m18_js_ui_sprites_js;
-const { monsterSvg } = __m18_js_ui_sprites_js;
-const { ICON } = __m24_js_ui_icons_js;
+const { keys, bestLevel, isUnlocked, levelReward, bossPreview, dungeonLayer, shards, relicLevel, relicCost } = __m30_js_core_dungeon_js;
+const { companionLevel, companionUpgradeCost } = __m12_js_core_companions_js;
+const { itemIconSvg, COMPANION_SVG } = __m19_js_ui_sprites_js;
+const { monsterSvg } = __m19_js_ui_sprites_js;
+const { ICON } = __m25_js_ui_icons_js;
 // Okno Kobky: seznam kobek, klíče, úroveň bosse, odměna další úrovně. Jen vykreslení.
 
 
@@ -5221,8 +5277,9 @@ function workshopHtml(state) {
   }).join('');
   const petLv = companionLevel(state, pet.id);
   const petRow = `<div class="row ${petLv ? '' : 'locked-soft'}"><div class="tile plain cp-tile">${COMPANION_SVG[pet.id]}</div>
-      <div class="row-main"><b>${pet.name}</b><span>${tr('mazlíček')} · ${pet.desc(Math.max(1, petLv))}${petLv ? ` · ${tr('vylepšíš v záložce Hrdina')}` : ''}</span></div>
-      ${petLv ? `<span class="done-mark">${tr('úr.')} ${petLv}</span>`
+      <div class="row-main"><b>${pet.name}</b><span>${tr('mazlíček')}${petLv ? ` · ${tr('úr.')} ${petLv}/${pet.max}` : ''} · ${pet.desc(Math.max(1, petLv))}</span></div>
+      ${petLv >= pet.max ? `<span class="done-mark">max.</span>`
+        : petLv ? `<button class="buy small" data-action="dg-pet-up" data-id="${pet.id}" ${have >= companionUpgradeCost(pet, petLv).shards ? '' : 'disabled'}>${ICON.shard}${companionUpgradeCost(pet, petLv).shards}</button>`
         : `<button class="buy small" data-action="dg-pet" data-id="${pet.id}" ${have >= pet.unlockShards ? '' : 'disabled'}>${ICON.shard}${pet.unlockShards}</button>`}</div>`;
   return `<h4>${tr('Dílna útržků')}</h4>
     <div class="card"><div class="dg-shards">${ICON.shard}<span>${tr('Útržky prastaré výzbroje')}</span><b>${formatNumber(have)}</b></div>
@@ -5234,14 +5291,14 @@ return { dungeonRewardHtml, dungeonsHtml };
 })();
 
 // ===== js/ui/forgeView.js =====
-const __m37_js_ui_forgeView_js = (() => {
+const __m38_js_ui_forgeView_js = (() => {
 const { FORGE, RARITIES } = __m2_js_config_js;
 const { tr } = __m1_js_i18n_js;
 const { formatNumber } = __m11_js_core_format_js;
 const { rarityWeights, rarityChances } = __m4_js_core_items_js;
 const { xpForNextLevel, isForgeMaxed, isForgeXpFull, forgeUpgradeCost, forgeUpgradeOre } = __m10_js_core_forge_js;
 const { getBonuses } = __m7_js_core_bonuses_js;
-const { ICON } = __m24_js_ui_icons_js;
+const { ICON } = __m25_js_ui_icons_js;
 // Okno Kovárna: úroveň, zkušenosti, vylepšení a šance na vzácnost (teď / po vylepšení),
 // plus od které úrovně padá která vzácnost. Jen vykreslení.
 
@@ -5299,9 +5356,9 @@ return { forgeInfoHtml };
 })();
 
 // ===== js/ui/effects.js =====
-const __m38_js_ui_effects_js = (() => {
+const __m39_js_ui_effects_js = (() => {
 const { RARITIES } = __m2_js_config_js;
-const { ICON } = __m24_js_ui_icons_js;
+const { ICON } = __m25_js_ui_icons_js;
 const { tr } = __m1_js_i18n_js;
 // Vizuální „šťáva“: jiskry, záblesky, vyskakující čísla, třes, bannery.
 // Jen zobrazení – nic nemění ve stavu hry. Všechno jde do vrstvy #fx nad hrou.
@@ -5328,6 +5385,7 @@ function spawn(className, x, y, html = '') {
   fx().appendChild(el);
   el.addEventListener('animationend', () => el.remove(), { once: true });
   setTimeout(() => el.remove(), 4000); // pojistka
+  return el;
   return el;
 }
 
@@ -5456,11 +5514,22 @@ function shake(size = 'small') {
   restartClass(app(), size === 'big' ? 'shake-big' : 'shake');
 }
 
-return { vibrate, anvilStrike, sparks, rarityReveal, floatText, goldGain, coalGain, bumpResource, heroDeath, forgeLevelUp, banner, shake };
+// Ohnivá koule od dráčka k příšeře
+function petFlame() {
+  const from = document.querySelector('#companions .dracek');
+  const to = document.querySelector('#monster .sprite');
+  if (!from || !to || reducedMotion) return;
+  const a = centerOf(from), b = centerOf(to);
+  const el = spawn('pet-flame', a.x + a.w * 0.4, a.y);
+  el.style.setProperty('--dx', `${b.x - a.x - a.w * 0.4}px`);
+  el.style.setProperty('--dy', `${b.y - a.y}px`);
+}
+
+return { vibrate, anvilStrike, sparks, rarityReveal, floatText, goldGain, coalGain, bumpResource, heroDeath, forgeLevelUp, banner, shake, petFlame };
 })();
 
 // ===== js/ui/sound.js =====
-const __m39_js_ui_sound_js = (() => {
+const __m40_js_ui_sound_js = (() => {
 
 // Zvuky generované přes WebAudio – žádné soubory. Jen přehrávání, stav hry nemění.
 // Prohlížeč na mobilu pustí zvuk až po prvním dotyku – unlock() se volá při každém klepnutí.
@@ -5706,6 +5775,13 @@ function tap() {
   tone(c, { f: 900, f2: 600, type: 'sine', vol: 0.06, dur: 0.05 });
 }
 
+// Dráček plivne oheň: syčivé „fff“ + nízké zadunění
+function fire() {
+  const c = ready('fire', 200); if (!c) return;
+  noise(c, { vol: 0.22, dur: 0.45, freq: 1800, freq2: 500, q: 0.7, type: 'bandpass', attack: 0.04 });
+  tone(c, { f: 140, f2: 70, type: 'triangle', vol: 0.12, dur: 0.35 });
+}
+
 function denied() {
   const c = ready('denied', 200); if (!c) return;
   tone(c, { f: 180, type: 'square', vol: 0.05, dur: 0.1 });
@@ -5877,51 +5953,51 @@ function musicMood(layerBaseId, boss = false) {
   music.boss = boss;
 }
 
-return { unlock, setSound, anvil, reveal, heroHit, heroHurt, kill, coin, equip, smelt, levelUp, boss, layer, death, pickup, buy, tap, denied, soundStatus, setMusic, musicMood };
+return { unlock, setSound, anvil, reveal, heroHit, heroHurt, kill, coin, equip, smelt, levelUp, boss, layer, death, pickup, buy, tap, fire, denied, soundStatus, setMusic, musicMood };
 })();
 
 // ===== js/main.js =====
-const __m40_js_main_js = (() => {
+const __m41_js_main_js = (() => {
 const { SAVE } = __m2_js_config_js;
 const { tr, setLang, getLang, locale } = __m1_js_i18n_js;
 const { itemName } = __m4_js_core_items_js;
 const { getLayer } = __m5_js_core_layers_js;
 const { loadState, saveState, resetState } = __m6_js_core_state_js;
-const { buildStatic, renderAll, renderBattle, animateAttack, showToast } = __m30_js_ui_render_js;
-const { createBattle, updateCombat } = __m12_js_core_combat_js;
+const { buildStatic, renderAll, renderBattle, animateAttack, showToast } = __m31_js_ui_render_js;
+const { createBattle, updateCombat } = __m14_js_core_combat_js;
 const { formatNumber } = __m11_js_core_format_js;
 const { forgeItem, equipPending, smeltPending, upgradeForge, isForgeXpFull, forgeUpgradeCost, mergePending } = __m10_js_core_forge_js;
-const { tickCoal, canAffordForge, spendForgeCoal, secondsToNextCoal, rollCoalDrop } = __m13_js_core_coal_js;
-const { rewardText } = __m27_js_ui_itemView_js;
-const { ICON } = __m24_js_ui_icons_js;
-const { updateBattleView, resetBattleView } = __m32_js_ui_battleView_js;
-const { renderTab, merchantSel } = __m25_js_ui_tabs_js;
-const { buyCoalPack, buyChest } = __m23_js_core_shop_js;
-const { rollMaterialDrop } = __m19_js_core_loot_js;
-const { simulateOffline } = __m20_js_core_offline_js;
-const { unlockCompanion, upgradeCompanion } = __m17_js_core_companions_js;
-const { refreshQuests, track, claimQuest, claimDailyBonus, claimLogin, firstBossReward, claimableCount } = __m14_js_core_quests_js;
-const { questsHtml } = __m33_js_ui_questsView_js;
-const { ingredientsHtml } = __m26_js_ui_ingredientsView_js;
-const { ingredientModifiers, consumeIngredients, putIngredient, clearSocket, missingIngredients } = __m15_js_core_ingredients_js;
-const { doPrestige, buyRuneUpgrade, runDepth, runesForDepth } = __m16_js_core_prestige_js;
+const { tickCoal, canAffordForge, spendForgeCoal, secondsToNextCoal, rollCoalDrop } = __m15_js_core_coal_js;
+const { rewardText } = __m28_js_ui_itemView_js;
+const { ICON } = __m25_js_ui_icons_js;
+const { updateBattleView, resetBattleView } = __m33_js_ui_battleView_js;
+const { renderTab, merchantSel } = __m26_js_ui_tabs_js;
+const { buyCoalPack, buyChest } = __m24_js_core_shop_js;
+const { rollMaterialDrop } = __m20_js_core_loot_js;
+const { simulateOffline } = __m21_js_core_offline_js;
+const { unlockCompanion, upgradeCompanion } = __m12_js_core_companions_js;
+const { refreshQuests, track, claimQuest, claimDailyBonus, claimLogin, firstBossReward, claimableCount } = __m16_js_core_quests_js;
+const { questsHtml } = __m34_js_ui_questsView_js;
+const { ingredientsHtml } = __m27_js_ui_ingredientsView_js;
+const { ingredientModifiers, consumeIngredients, putIngredient, clearSocket, missingIngredients } = __m17_js_core_ingredients_js;
+const { doPrestige, buyRuneUpgrade, runDepth, runesForDepth } = __m18_js_core_prestige_js;
 const { SHOP, PASS, PREMIUM } = __m2_js_config_js;
-const { refillCoal, buySpeed, buyInstant, buyDiamondChest, buyAutoForge, useCosmetic } = __m21_js_core_premium_js;
-const { refreshPass, addPassXp, claimPass, buyPremiumPass } = __m22_js_core_pass_js;
-const { passHtml } = __m34_js_ui_passView_js;
+const { refillCoal, buySpeed, buyInstant, buyDiamondChest, buyAutoForge, useCosmetic } = __m22_js_core_premium_js;
+const { refreshPass, addPassXp, claimPass, buyPremiumPass } = __m23_js_core_pass_js;
+const { passHtml } = __m35_js_ui_passView_js;
 const { getBonuses } = __m7_js_core_bonuses_js;
 const { compareItems } = __m4_js_core_items_js;
 const { canMergePending, forgeUpgradeOre } = __m10_js_core_forge_js;
 const { upgradeSlot, polishSlot } = __m8_js_core_slots_js;
-const { slotHtml } = __m35_js_ui_slotView_js;
+const { slotHtml } = __m36_js_ui_slotView_js;
 const { SLOTS, RARITIES } = __m2_js_config_js;
-const { refreshKeys, startDungeon, updateDungeon, sweepDungeon, buyKey, dungeonDef, upgradeRelic } = __m29_js_core_dungeon_js;
-const { dungeonsHtml, dungeonRewardHtml } = __m36_js_ui_dungeonView_js;
-const { materialInfo } = __m26_js_ui_ingredientsView_js;
-const { forgeInfoHtml } = __m37_js_ui_forgeView_js;
-const { buyMaterialPack, buyOrePack, swapMaterial, sellForOre } = __m23_js_core_shop_js;
-const fx = __m38_js_ui_effects_js;
-const sfx = __m39_js_ui_sound_js;
+const { refreshKeys, startDungeon, updateDungeon, sweepDungeon, buyKey, dungeonDef, upgradeRelic } = __m30_js_core_dungeon_js;
+const { dungeonsHtml, dungeonRewardHtml } = __m37_js_ui_dungeonView_js;
+const { materialInfo } = __m27_js_ui_ingredientsView_js;
+const { forgeInfoHtml } = __m38_js_ui_forgeView_js;
+const { buyMaterialPack, buyOrePack, swapMaterial, sellForOre } = __m24_js_core_shop_js;
+const fx = __m39_js_ui_effects_js;
+const sfx = __m40_js_ui_sound_js;
 // Vstupní bod hry: načte stav, napojí ovládání, spustí smyčku a autosave.
 
 
@@ -6252,6 +6328,8 @@ function bindUi() {
     if (b.dataset.action === 'dg-fight') enterDungeon(id);
     else if (b.dataset.action === 'dg-relic') {
       if (upgradeRelic(state, id)) { sfx.levelUp(); fx.bumpResource('power'); saveState(state); } else sfx.denied();
+    } else if (b.dataset.action === 'dg-pet-up') {
+      if (upgradeCompanion(state, id)) { sfx.buy(); saveState(state); } else sfx.denied();
     } else if (b.dataset.action === 'dg-pet') {
       if (unlockCompanion(state, id)) { sfx.levelUp(); saveState(state); showToast(tr('Nový mazlíček!')); } else sfx.denied();
     }
@@ -6495,6 +6573,7 @@ function update(dt) {
     switch (e.type) {
       case 'heroHit': sfx.heroHit(); animateAttack('hero'); fx.floatText('monster', e.crit ? `${formatNumber(e.dmg)}!` : formatNumber(e.dmg), e.crit ? 'crit' : 'dmg'); break;
       case 'dodge': fx.floatText('hero', tr('Úhyb'), 'dodge'); break;
+      case 'petFire': petFire(e.dmg); break;
       case 'monsterHit': sfx.heroHurt(); animateAttack('monster'); fx.floatText('hero', `-${formatNumber(e.dmg)}`, 'hurt'); break;
       case 'kill': {
         needFull = true;
@@ -6523,6 +6602,20 @@ function update(dt) {
   }
   if (needFull) render();
   else renderBattle(state, battle);
+}
+
+// Dráček plivne oheň: animace dráčka, plamen k příšeře, číslo poškození
+function petFire(dmg) {
+  sfx.fire();
+  const d = document.querySelector('#companions .dracek');
+  if (d) { d.classList.remove('breath'); void d.getBoundingClientRect(); d.classList.add('breath'); }
+  fx.petFlame();
+  setTimeout(() => { animateHit(); fx.floatText('monster', formatNumber(dmg), 'fire'); }, 260);
+}
+function animateHit() {
+  const s = document.querySelector('#monster .sprite');
+  if (!s) return;
+  s.classList.remove('hit'); void s.getBoundingClientRect(); s.classList.add('hit');
 }
 
 // ---------------- Kobky ----------------
@@ -6568,6 +6661,7 @@ function updateDungeonFight(dt) {
     switch (e.type) {
       case 'heroHit': sfx.heroHit(); animateAttack('hero'); fx.floatText('monster', e.crit ? `${formatNumber(e.dmg)}!` : formatNumber(e.dmg), e.crit ? 'crit' : 'dmg'); break;
       case 'dodge': fx.floatText('hero', tr('Úhyb'), 'dodge'); break;
+      case 'petFire': petFire(e.dmg); break;
       case 'monsterHit': sfx.heroHurt(); animateAttack('monster'); fx.floatText('hero', `-${formatNumber(e.dmg)}`, 'hurt'); break;
       case 'dungeonEnd': {
         const dg = dungeonDef(f.dungeon);
