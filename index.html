@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="build" content="2026-11-05 00:27">
+  <meta name="build" content="2026-11-05 00:47">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#0e1a22">
   <meta name="mobile-web-app-capable" content="yes">
@@ -674,6 +674,31 @@ body { display: flex; justify-content: center; }
 .rs-tile svg { width: 26px; height: 26px; color: var(--accent); }
 .sub-line b { white-space: nowrap; }
 
+/* Další cíl (v boji vpravo dole) */
+#goal { position: absolute; right: 8px; bottom: 8px; z-index: 3; max-width: calc(100% - 140px); display: flex; align-items: center; gap: 6px;
+  background: rgba(8, 18, 24, .78); border-radius: 12px; padding: 6px 10px; font-size: 11px; font-weight: 800; color: var(--text); text-align: left; line-height: 1.2; }
+#goal .g-ico svg { width: 18px; height: 18px; display: block; }
+#goal .g-txt { flex: 1; min-width: 0; }
+#goal b { flex: none; color: var(--accent); }
+#goal.done { background: #1fc7a8; color: #06231d; animation: goal-pulse 1.2s ease-in-out infinite; }
+#goal.done b { color: #06231d; }
+@keyframes goal-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+#battle.in-dungeon #goal { display: none; }
+
+/* Zamčené funkce */
+#nav button.locked { opacity: .35; }
+#nav button.locked svg { filter: grayscale(1); }
+#nav button.new::after { content: ''; position: absolute; inset: 4px 10%; border-radius: 12px; box-shadow: 0 0 0 2px var(--accent); animation: goal-pulse 1s ease-in-out infinite; pointer-events: none; }
+.side-btn.locked { opacity: .35; }
+.subnav button.locked { opacity: .35; }
+
+/* Truhla z hlubin */
+.big-chest { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 10px auto 4px; color: var(--muted); font-weight: 800; }
+.big-chest svg { width: 120px; height: 120px; filter: drop-shadow(0 0 18px rgba(242, 193, 78, .45)); animation: chest-idle 1.6s ease-in-out infinite; }
+.big-chest.opening svg { animation: chest-open .65s ease-in forwards; }
+@keyframes chest-idle { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg) scale(1.04); } }
+@keyframes chest-open { 0% { transform: scale(1); } 30% { transform: scale(.9, 1.1) rotate(-6deg); } 60% { transform: scale(1.15) rotate(6deg); } 100% { transform: scale(1.4); opacity: 0; } }
+
 </style>
 </head>
 <body>
@@ -698,6 +723,7 @@ body { display: flex; justify-content: center; }
         <div id="dg-timer"></div>
       </div>
       <div id="skill-bar"></div>
+      <button id="goal" aria-label="Další cíl" data-i18n-aria="Další cíl"></button>
       <div class="fighter" id="hero">
         <div class="hp-bar"><div class="hp-fill"></div></div>
         <div class="sprite"><svg viewBox="0 10 128 140" id="hero-svg"></svg></div>
@@ -1095,6 +1121,26 @@ const EN = {
   'Dovednosti': 'Skills',
   'Mazlíčci': 'Pets',
   'Více': 'More',
+  // Odemykání, cíle, truhla
+  'Runy předků a pomocníci': 'Ancestor runes and helpers',
+  'Odemkne se ve vrstvě {v}, vlna {v2}': 'Unlocks at layer {v}, wave {v2}',
+  'Ukuj {v} předměty': 'Forge {v} items',
+  'Měj nasazeno {v} kusů vybavení': 'Have {v} pieces of gear equipped',
+  'Vylepši kovárnu na úroveň {v}': 'Upgrade the forge to level {v}',
+  'Dojdi do vlny {v}': 'Reach wave {v}',
+  'Poraz prvního bosse ({v})': 'Defeat the first boss ({v})',
+  'Poraz bosse {v} vrstev': 'Defeat the bosses of {v} layers',
+  'Získej {v} dovednosti (Hrdina → Dovednosti)': 'Get {v} skills (Hero → Skills)',
+  'Poraz bosse kobky na úrovni {v}': 'Beat a dungeon boss at level {v}',
+  'Spusť výzkum': 'Start a research',
+  'Získej mazlíčka (vejce z kobek)': 'Get a pet (eggs from dungeons)',
+  'Truhla z hlubin': 'Chest from the Depths',
+  'Otevřít truhlu': 'Open the chest',
+  'Klepni a otevři': 'Tap to open',
+  'ODEMČENO': 'UNLOCKED',
+  'Vyzvednout!': 'Claim!',
+  'Cíl splněn': 'Goal complete',
+  'Další cíl': 'Next goal',
 };
 
 return { EN };
@@ -1358,6 +1404,53 @@ const COMBAT = {
   respawnDelay: 2.0,           // pauza po smrti hrdiny (s)
   // Hrdina se na začátku každé vlny plně vyléčí. Smrt = vlna zpět (ne pod 1. vlnu vrstvy).
 };
+
+// ---------------------------------------------------------------------
+//  Postupné odemykání funkcí (ať nový hráč není zahlcený). depth = hloubka
+//  (vrstva × 10 + vlna) nejhlubšího místa. Kdo už je dál, má odemčeno hned.
+// ---------------------------------------------------------------------
+const UNLOCKS = [
+  { id: 'shop', depth: 3, get name() { return tr('Obchod'); } },
+  { id: 'quests', depth: 5, get name() { return tr('Úkoly'); } },
+  { id: 'skills', depth: 11, get name() { return tr('Dovednosti'); } },
+  { id: 'dungeons', depth: 15, get name() { return tr('Kobky'); } },
+  { id: 'ingredients', depth: 18, get name() { return tr('Přísady'); } },
+  { id: 'research', depth: 21, get name() { return tr('Výzkum'); } },
+  { id: 'pets', depth: 25, get name() { return tr('Mazlíčci'); } },
+  { id: 'more', depth: 30, get name() { return tr('Runy předků a pomocníci'); } },
+];
+
+// ---------------------------------------------------------------------
+//  Cíle – vždy jeden viditelný „další cíl“ s odměnou. Po seznamu následují
+//  nekonečné cíle (hloubka, kovárna, kobka). type viz js/core/progression.js
+// ---------------------------------------------------------------------
+const GOALS = [
+  { type: 'forged', n: 3, reward: { gold: 30 } },
+  { type: 'equipped', n: 3, reward: { coal: 5 } },
+  { type: 'forge', n: 2, reward: { gold: 60 } },
+  { type: 'depth', n: 6, reward: { diamonds: 5 } },
+  { type: 'boss', n: 1, reward: { scrolls: 5 } },
+  { type: 'skills', n: 2, reward: { gold: 150 } },
+  { type: 'dungeon', n: 1, reward: { diamonds: 10 } },
+  { type: 'equipped', n: 6, reward: { coal: 10 } },
+  { type: 'forge', n: 4, reward: { gold: 300 } },
+  { type: 'research', n: 1, reward: { diamonds: 10 } },
+  { type: 'boss', n: 2, reward: { scrolls: 5 } },
+  { type: 'pets', n: 1, reward: { gold: 500 } },
+  { type: 'forge', n: 5, reward: { diamonds: 15 } },
+  { type: 'dungeon', n: 3, reward: { scrolls: 5 } },
+  { type: 'boss', n: 3, reward: { diamonds: 20 } },
+];
+
+// ---------------------------------------------------------------------
+//  Truhla z hlubin – offline odměna se „sbírá“ do truhly (otevře se po návratu)
+// ---------------------------------------------------------------------
+const OFFLINE_CHEST = { minMinutes: 3 }; // kratší nepřítomnost = bez truhly
+
+// ---------------------------------------------------------------------
+//  Měření (anonymní): GoatCounter – vyplň kód účtu (https://KOD.goatcounter.com), prázdné = vypnuto
+// ---------------------------------------------------------------------
+const ANALYTICS = { goatcounter: '' };
 
 // ---------------------------------------------------------------------
 //  Kobky – souboj s bossem po úrovních. Vstup za klíč (výhra klíč spotřebuje,
@@ -1722,7 +1815,7 @@ const MERCHANT = {
   oreRate: 4,                // 1 kus suroviny hlubin → 4 rudy
 };
 
-return { SAVE, RARITIES, SLOTS, STATS, SUBSTATS, ITEMS, ITEM_NAMES, HERO, CURRENCIES, MATERIALS, FORGE, DEPTH, LAYERS, COMBAT, DUNGEON, RELICS, DUNGEONS, COAL, WEAPON_SHAPES, MATERIAL_DROP, SHOP, LEGENDS, OFFLINE, PRESTIGE, RUNE_UPGRADES, QUEST_POOL, LOGIN_REWARDS, DIAMONDS, INGREDIENTS, MERGE, COMPANIONS, SKILLS, RESEARCH, PET, PETS, COMPANION_COST, EVENTS, PREMIUM, COSMETICS, PASS, SLOT_UPGRADE, RUNE_POLISH, MERCHANT };
+return { SAVE, RARITIES, SLOTS, STATS, SUBSTATS, ITEMS, ITEM_NAMES, HERO, CURRENCIES, MATERIALS, FORGE, DEPTH, LAYERS, COMBAT, UNLOCKS, GOALS, OFFLINE_CHEST, ANALYTICS, DUNGEON, RELICS, DUNGEONS, COAL, WEAPON_SHAPES, MATERIAL_DROP, SHOP, LEGENDS, OFFLINE, PRESTIGE, RUNE_UPGRADES, QUEST_POOL, LOGIN_REWARDS, DIAMONDS, INGREDIENTS, MERGE, COMPANIONS, SKILLS, RESEARCH, PET, PETS, COMPANION_COST, EVENTS, PREMIUM, COSMETICS, PASS, SLOT_UPGRADE, RUNE_POLISH, MERCHANT };
 })();
 
 // ===== js/core/rng.js =====
@@ -2047,6 +2140,8 @@ function createNewState() {
     skills: { scrolls: 5, owned: {}, slots: [null, null, null] }, // dovednosti (svitky, sbírka, 3 sloty)
     pets: { eggs: 0, owned: {}, active: null }, // mazlíčci (vejce, sbírka, aktivní)
     research: { levels: {}, active: null }, // výzkum (trvalá vylepšení na čas)
+    unlocked: {}, // postupně odemčené funkce (obchod, kobky, výzkum…)
+    goals: { index: 0 }, // řetěz „dalších cílů“
     legends: [], // sbírka: každá ukovaná legendárka/mýtická (i přetavená)
   };
 }
@@ -4059,6 +4154,8 @@ const __m27_js_ui_icons_js = (() => {
 // Malé ploché ikony UI (místo emoji). Vrací řetězce SVG.
 
 const ICON = {
+  target: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="#1fc7a8" stroke-width="2.4"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="#1fc7a8" stroke-width="2.4"/><circle cx="12" cy="12" r="1.5" fill="#1fc7a8"/></svg>`,
+  gift: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="9" width="18" height="5" rx="1" fill="#f2c14e"/><rect x="5" y="14" width="14" height="7" rx="1" fill="#e0a935"/><rect x="10.5" y="9" width="3" height="12" fill="#e5484d"/><path d="M12 9 Q6 2 5 7 Q6 9 12 9 Q18 9 19 7 Q18 2 12 9 Z" fill="#e5484d"/></svg>`,
   scroll: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2" fill="#e8dcc0"/><rect x="3" y="3" width="18" height="4" rx="2" fill="#c9a56a"/><rect x="3" y="17" width="18" height="4" rx="2" fill="#c9a56a"/><path d="M8 10 H16 M8 13 H14" stroke="#8a6a3a" stroke-width="1.6" stroke-linecap="round"/></svg>`,
   egg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 Q19 2 19 14 Q19 22 12 22 Q5 22 5 14 Q5 2 12 2 Z" fill="#f0e6d2"/><path d="M8 9 L10 8 M14 12 L16 11 M9 16 L11 15" stroke="#b98cff" stroke-width="2" stroke-linecap="round"/></svg>`,
   research: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3 H15 M10 3 V9 L4 19 Q3 21 5 21 H19 Q21 21 20 19 L14 9 V3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M7 15 H17" stroke="currentColor" stroke-width="2.2"/></svg>`,
@@ -5003,7 +5100,8 @@ function legendsHtml(state) {
 }
 
 function heroTabHtml(state) {
-  const nav = `<div class="subnav">${HERO_SUBS.map(([id, n]) => `<button data-sub="${id}" class="${id === heroSub ? 'on' : ''}">${n()}${subBadge(state, id)}</button>`).join('')}</div>`;
+  const nav = `<div class="subnav">${HERO_SUBS.map(([id, n]) => `<button data-sub="${id}" class="${id === heroSub ? 'on' : ''} ${id !== 'gear' && !state.unlocked?.[id] ? 'locked' : ''}">${n()}${subBadge(state, id)}</button>`).join('')}</div>`;
+  if (heroSub !== 'gear' && !state.unlocked?.[heroSub]) heroSub = 'gear';
   const body = heroSub === 'skills' ? skillsHtml(state)
     : heroSub === 'pets' ? petsHtml(state)
       : heroSub === 'more' ? moreHtml(state)
@@ -5013,6 +5111,7 @@ function heroTabHtml(state) {
 
 // Tečka u podzáložky, když je co udělat (svitek na vyvolání, vejce)
 function subBadge(state, id) {
+  if (id !== 'gear' && !state.unlocked?.[id]) return '';
   const on = (id === 'skills' && (state.skills?.scrolls ?? 0) >= SKILLS.summonCost) || (id === 'pets' && (state.pets?.eggs ?? 0) > 0);
   return on ? '<i class="dot"></i>' : '';
 }
@@ -5031,7 +5130,7 @@ function renderTab(tab, state) {
 }
 
 
-return { setHeroSub, gemSvg, merchantSel, runeSvg, renderTab };
+return { setHeroSub, gemSvg, merchantSel, chestSvg, runeSvg, renderTab };
 })();
 
 // ===== js/ui/ingredientsView.js =====
@@ -5339,8 +5438,9 @@ function renderHud(state) {
     const c = researchCost(lv + 1);
     return lv < d.max && state.gold >= c.gold && state.materials.ore >= c.ore;
   });
-  setBadge('research', canResearch ? '!' : '');
-  const heroTodo = ((state.skills?.scrolls ?? 0) >= SKILLS.summonCost ? 1 : 0) + ((state.pets?.eggs ?? 0) > 0 ? 1 : 0);
+  setBadge('research', canResearch && state.unlocked?.research ? '!' : '');
+  if (!state.unlocked?.dungeons) setBadge('dungeons', '');
+  const heroTodo = (state.unlocked?.skills && (state.skills?.scrolls ?? 0) >= SKILLS.summonCost ? 1 : 0) + (state.unlocked?.pets && (state.pets?.eggs ?? 0) > 0 ? 1 : 0);
   setBadge('hero', heroTodo ? '!' : '');
   renderCoal(state);
 }
@@ -6171,8 +6271,165 @@ function forgeInfoHtml(state) {
 return { forgeInfoHtml };
 })();
 
+// ===== js/core/progression.js =====
+const __m44_js_core_progression_js = (() => {
+const { UNLOCKS, GOALS, SLOTS, LAYERS } = __m2_js_config_js;
+const { tr } = __m1_js_i18n_js;
+const { depthIndex } = __m4_js_core_items_js;
+// Postup nového hráče: odemykání funkcí a řetěz „dalších cílů“. Žádné DOM.
+// state.unlocked = { id: true }, state.goals = { index }
+
+
+
+function bestDepth(state) {
+  return Math.max(depthIndex({ layer: state.progress.maxLayer, wave: state.progress.maxWave }), state.prestige?.bestDepth ?? 0);
+}
+
+function isUnlocked(state, id) {
+  return !!state.unlocked?.[id];
+}
+
+function unlockInfo(id) { return UNLOCKS.find((u) => u.id === id); }
+
+// Odemkne, co je splněné. silent = bez oznámení (první načtení staré hry). Vrací nově odemčené.
+function checkUnlocks(state, silent = false) {
+  if (!state.unlocked) state.unlocked = {};
+  const d = bestDepth(state);
+  const fresh = [];
+  for (const u of UNLOCKS) {
+    if (state.unlocked[u.id] || d < u.depth) continue;
+    state.unlocked[u.id] = true;
+    if (!silent) fresh.push(u);
+  }
+  return fresh;
+}
+
+// Text „odemkne se…“ pro zamčené tlačítko
+function unlockHint(id) {
+  const u = unlockInfo(id);
+  if (!u) return '';
+  const layer = Math.floor((u.depth - 1) / 10);
+  const wave = ((u.depth - 1) % 10) + 1;
+  return tr('Odemkne se ve vrstvě {v}, vlna {v2}', { v: layer + 1, v2: wave });
+}
+
+// ---------------- Cíle ----------------
+// Cíl podle pořadí: nejdřív GOALS, pak nekonečné cíle (střídá hloubku, kovárnu a kobky)
+function goalAt(i) {
+  if (i < GOALS.length) return GOALS[i];
+  const k = i - GOALS.length;
+  const step = Math.floor(k / 3) + 1;
+  const kind = k % 3;
+  if (kind === 0) return { type: 'boss', n: 3 + step, reward: { diamonds: 20 + 5 * step } };
+  if (kind === 1) return { type: 'forge', n: 5 + step, reward: { scrolls: 5 } };
+  return { type: 'dungeon', n: 3 + step * 2, reward: { diamonds: 15 } };
+}
+
+function current(state) {
+  if (!state.goals) state.goals = { index: 0 };
+  return goalAt(state.goals.index);
+}
+
+// Postup cíle: { have, need }
+function goalProgress(state, g) {
+  let have = 0;
+  switch (g.type) {
+    case 'forged': have = state.stats.itemsForged; break;
+    case 'equipped': have = SLOTS.filter((s) => state.equipment[s.id]).length; break;
+    case 'forge': have = state.forge.level; break;
+    case 'depth': have = bestDepth(state); break;
+    case 'boss': have = state.progress.maxLayer; break; // boss vrstvy n poražen ⇔ hráč došel do vrstvy n+1
+    case 'skills': have = Object.keys(state.skills?.owned ?? {}).length; break;
+    case 'dungeon': have = Math.max(0, ...Object.values(state.dungeons?.levels ?? {})); break;
+    case 'research': have = Object.values(state.research?.levels ?? {}).reduce((a, b) => a + b, 0) + (state.research?.active ? 1 : 0); break;
+    case 'pets': have = Object.keys(state.pets?.owned ?? {}).length; break;
+    default: have = 0;
+  }
+  return { have: Math.min(have, g.n), need: g.n };
+}
+
+function goalText(g) {
+  switch (g.type) {
+    case 'forged': return tr('Ukuj {v} předměty', { v: g.n });
+    case 'equipped': return tr('Měj nasazeno {v} kusů vybavení', { v: g.n });
+    case 'forge': return tr('Vylepši kovárnu na úroveň {v}', { v: g.n });
+    case 'depth': return tr('Dojdi do vlny {v}', { v: g.n });
+    case 'boss': return g.n === 1 ? tr('Poraz prvního bosse ({v})', { v: LAYERS[0].boss.name }) : tr('Poraz bosse {v} vrstev', { v: g.n });
+    case 'skills': return tr('Získej {v} dovednosti (Hrdina → Dovednosti)', { v: g.n });
+    case 'dungeon': return tr('Poraz bosse kobky na úrovni {v}', { v: g.n });
+    case 'research': return tr('Spusť výzkum');
+    case 'pets': return tr('Získej mazlíčka (vejce z kobek)');
+    default: return '';
+  }
+}
+
+function currentGoal(state) {
+  const g = current(state);
+  const p = goalProgress(state, g);
+  return { goal: g, ...p, done: p.have >= p.need };
+}
+
+// Vyzvednout odměnu splněného cíle → posun na další. Vrací odměnu, nebo null.
+function claimGoal(state) {
+  const c = currentGoal(state);
+  if (!c.done) return null;
+  const r = c.goal.reward;
+  state.gold += r.gold ?? 0;
+  state.coal.amount += r.coal ?? 0;
+  state.diamonds += r.diamonds ?? 0;
+  if (r.diamonds) state.stats.diamondsEarned = (state.stats.diamondsEarned ?? 0) + r.diamonds;
+  if (r.scrolls) { if (!state.skills) state.skills = { scrolls: 0, owned: {}, slots: [null, null, null] }; state.skills.scrolls += r.scrolls; }
+  state.goals.index++;
+  return r;
+}
+
+return { bestDepth, isUnlocked, unlockInfo, checkUnlocks, unlockHint, goalAt, goalProgress, goalText, currentGoal, claimGoal };
+})();
+
+// ===== js/analytics.js =====
+const __m45_js_analytics_js = (() => {
+const { ANALYTICS } = __m2_js_config_js;
+// Anonymní měření (GoatCounter): kolik lidí hraje, jak dlouho, kam dojdou, kdy přestanou.
+// Bez osobních údajů a cookies. Vypnuto, dokud ANALYTICS.goatcounter v configu není vyplněný.
+
+let ready = false;
+const queue = [];
+
+function initAnalytics() {
+  const code = ANALYTICS.goatcounter;
+  if (!code || typeof document === 'undefined' || location.protocol === 'file:') return;
+  window.goatcounter = { no_onload: true, allow_local: false };
+  const s = document.createElement('script');
+  s.async = true;
+  s.dataset.goatcounter = `https://${code}.goatcounter.com/count`;
+  s.src = 'https://gc.zgo.at/count.js';
+  s.onload = () => { ready = true; queue.splice(0).forEach(send); };
+  document.head.appendChild(s);
+}
+
+function send(name) {
+  try { window.goatcounter?.count?.({ path: name, title: name, event: true }); } catch { /* nic */ }
+}
+
+// Událost (např. 'start', 'den-3', 'vrstva-2', 'cil-5', 'hrani-15min')
+function event(name) {
+  if (!ANALYTICS.goatcounter) return;
+  if (ready) send(name); else if (queue.length < 50) queue.push(name);
+}
+
+// Jednou za den / za milník: pamatuje si, co už odeslal (ať se nepočítá dvakrát)
+function once(state, name) {
+  if (!state.sent) state.sent = {};
+  if (state.sent[name]) return;
+  state.sent[name] = 1;
+  event(name);
+}
+
+return { initAnalytics, event, once };
+})();
+
 // ===== js/ui/effects.js =====
-const __m44_js_ui_effects_js = (() => {
+const __m46_js_ui_effects_js = (() => {
 const { RARITIES } = __m2_js_config_js;
 const { ICON } = __m27_js_ui_icons_js;
 const { tr } = __m1_js_i18n_js;
@@ -6346,7 +6603,7 @@ return { vibrate, anvilStrike, sparks, rarityReveal, floatText, goldGain, coalGa
 })();
 
 // ===== js/ui/sound.js =====
-const __m45_js_ui_sound_js = (() => {
+const __m47_js_ui_sound_js = (() => {
 
 // Zvuky generované přes WebAudio – žádné soubory. Jen přehrávání, stav hry nemění.
 // Prohlížeč na mobilu pustí zvuk až po prvním dotyku – unlock() se volá při každém klepnutí.
@@ -6786,7 +7043,7 @@ return { unlock, setSound, anvil, reveal, heroHit, heroHurt, kill, coin, equip, 
 })();
 
 // ===== js/main.js =====
-const __m46_js_main_js = (() => {
+const __m48_js_main_js = (() => {
 const { SAVE } = __m2_js_config_js;
 const { tr, setLang, getLang, locale } = __m1_js_i18n_js;
 const { itemName } = __m4_js_core_items_js;
@@ -6800,7 +7057,7 @@ const { tickCoal, canAffordForge, spendForgeCoal, secondsToNextCoal, rollCoalDro
 const { rewardText } = __m35_js_ui_itemView_js;
 const { ICON } = __m27_js_ui_icons_js;
 const { updateBattleView, resetBattleView } = __m39_js_ui_battleView_js;
-const { renderTab, merchantSel, setHeroSub } = __m33_js_ui_tabs_js;
+const { renderTab, merchantSel, setHeroSub, chestSvg } = __m33_js_ui_tabs_js;
 const { buyCoalPack, buyChest } = __m26_js_core_shop_js;
 const { rollMaterialDrop } = __m22_js_core_loot_js;
 const { simulateOffline } = __m23_js_core_offline_js;
@@ -6819,18 +7076,22 @@ const { compareItems } = __m4_js_core_items_js;
 const { canMergePending, forgeUpgradeOre } = __m12_js_core_forge_js;
 const { upgradeSlot, polishSlot } = __m10_js_core_slots_js;
 const { slotHtml } = __m42_js_ui_slotView_js;
-const { SLOTS, RARITIES } = __m2_js_config_js;
+const { SLOTS, RARITIES, OFFLINE_CHEST } = __m2_js_config_js;
 const { refreshKeys, startDungeon, updateDungeon, sweepDungeon, buyKey, dungeonDef, upgradeRelic } = __m31_js_core_dungeon_js;
 const { dungeonRewardHtml } = __m32_js_ui_dungeonView_js;
 const { materialInfo } = __m34_js_ui_ingredientsView_js;
 const { forgeInfoHtml } = __m43_js_ui_forgeView_js;
+const { checkUnlocks, isUnlocked, unlockHint, currentGoal, goalText, claimGoal } = __m44_js_core_progression_js;
+const { initAnalytics } = __m45_js_analytics_js;
 const { summonSkill, toggleSkill, skillDef, skillLevel, cooldownLeft } = __m14_js_core_skills_js;
 const { hatchEgg, petDef, petLevel, setActivePet, upgradePet, buyDragon } = __m9_js_core_pets_js;
 const { startResearch, tickResearch, finishNow, researchDef, researchLevel } = __m8_js_core_research_js;
 const { buyMaterialPack, buyOrePack, swapMaterial, sellForOre } = __m26_js_core_shop_js;
-const fx = __m44_js_ui_effects_js;
-const sfx = __m45_js_ui_sound_js;
+const fx = __m46_js_ui_effects_js;
+const sfx = __m47_js_ui_sound_js;
+const analytics = __m45_js_analytics_js;
 // Vstupní bod hry: načte stav, napojí ovládání, spustí smyčku a autosave.
+
 
 
 
@@ -6856,7 +7117,9 @@ let tab = 'forge';
 
 // Překreslí vše včetně otevřené záložky
 function render() {
+  announceUnlocks();
   renderAll(state, dungeonFight ?? battle);
+  renderLocks();
   if (dungeonFight) renderDungeonStage();
   if (tab !== 'forge') renderTab(tab, state);
 }
@@ -6946,20 +7209,31 @@ function fmtDuration(sec) {
   return h ? `${h} h ${m} min` : `${m} min`;
 }
 
-function showOffline(sum, title = tr('Mezitím v hlubinách…')) {
+function showOffline(sum, title = tr('Mezitím v hlubinách…'), instant = false) {
   if (!sum) return;
+  if (!instant && sum.seconds < OFFLINE_CHEST.minMinutes * 60) return; // krátká pauza = bez truhly
   const from = sum.fromDepth, to = sum.toDepth;
   const where = `${getLayer(state.progress.layer).name}, ${tr('vlna {v}', { v: state.progress.wave })}`;
   const line = (icon, label, val) => `<div class="rw-line">${icon}<span>${label}</span><b>${val}</b></div>`;
   const mats = Object.entries(sum.materials).map(([n, v]) => line('', n, `+${formatNumber(v)}`)).join('');
-  openReward(title,
-    `${fmtDuration(sum.seconds)}${sum.capped ? ` ${tr('(víc se nepočítá – max. {v} h)', { v: Math.round(sum.seconds / 3600) })}` : ''} · ${tr('trpaslík bojoval sám')}`,
-    line(ICON.attack, tr('Poraženo příšer'), formatNumber(sum.kills))
+  const sub = `${fmtDuration(sum.seconds)}${sum.capped ? ` ${tr('(víc se nepočítá – max. {v} h)', { v: Math.round(sum.seconds / 3600) })}` : ''} · ${tr('trpaslík bojoval sám')}`;
+  const loot = line(ICON.attack, tr('Poraženo příšer'), formatNumber(sum.kills))
     + line(ICON.power, tr('Postup'), to > from ? `${tr('+{v} vln', { v: to - from })} → ${where}` : to < from ? `${tr('ústup o {v}', { v: from - to })} → ${where}` : `${tr('drží se')}: ${where}`)
     + line(ICON.gold, tr('Zlato'), `+${formatNumber(sum.gold)}`)
     + (sum.coal ? line(ICON.coal, tr('Uhlí'), `+${formatNumber(sum.coal)}`) : '')
-    + mats,
-    [{ label: tr('Vyzvednout'), cls: 'primary', onClick: () => { sfx.coin(); } }]);
+    + mats;
+  const done = () => openReward(title, sub, loot, [{ label: tr('Vyzvednout'), cls: 'primary', onClick: () => { sfx.coin(); } }]);
+  if (instant) { done(); return; }
+  // Truhla z hlubin: nejdřív zavřená, klepnutím se otevře
+  openReward(tr('Truhla z hlubin'), sub,
+    `<button class="big-chest" id="big-chest" aria-label="${tr('Otevřít truhlu')}">${chestSvg()}<span>${tr('Klepni a otevři')}</span></button>`, []);
+  const btn = document.getElementById('big-chest');
+  btn.addEventListener('click', () => {
+    if (btn.classList.contains('opening')) return;
+    btn.classList.add('opening');
+    sfx.anvil();
+    setTimeout(() => { sfx.reveal(3); fx.rarityReveal(3); done(); }, 650);
+  });
 }
 
 // Okno s odměnou / informací. buttons = [{ label, cls, onClick }]
@@ -6996,6 +7270,9 @@ function init() {
   refreshQuests(state);
   refreshPass(state);
   refreshKeys(state);
+  checkUnlocks(state, true); // co už hráč splnil (stará hra), odemknout potichu
+  initAnalytics();
+  trackSession();
   setInterval(() => { const a = refreshQuests(state), b = refreshKeys(state); if (a || b) render(); }, 60 * 1000);
   applySound();
   // Prohlížeč pustí zvuk až po prvním dotyku
@@ -7144,6 +7421,8 @@ function bindUi() {
     renderSlot();
   });
 
+  document.getElementById('goal').addEventListener('click', claimCurrentGoal);
+
   const quests = document.getElementById('quests');
   document.getElementById('btn-quests').addEventListener('click', () => {
     sfx.tap();
@@ -7174,6 +7453,7 @@ function bindUi() {
   const ingr = document.getElementById('ingredients');
   const renderIngr = () => { document.getElementById('ingr-body').innerHTML = ingredientsHtml(state); };
   document.getElementById('btn-chances').addEventListener('click', () => {
+    if (!isUnlocked(state, 'ingredients')) { sfx.denied(); showToast(unlockHint('ingredients')); return; }
     sfx.tap();
     renderIngr();
     ingr.classList.remove('hidden');
@@ -7192,11 +7472,16 @@ function bindUi() {
 
   document.getElementById('nav').addEventListener('click', (e) => {
     const b = e.target.closest('button');
-    if (b) { sfx.tap(); switchTab(b.dataset.tab); }
+    if (!b) return;
+    if (!tabOpen(b.dataset.tab)) { sfx.denied(); showToast(unlockHint(b.dataset.tab)); return; }
+    sfx.tap();
+    b.classList.remove('new');
+    switchTab(b.dataset.tab);
   });
 
   document.getElementById('tab-panel').addEventListener('click', (e) => {
     const sub = e.target.closest('button[data-sub]');
+    if (sub && sub.dataset.sub !== 'gear' && !isUnlocked(state, sub.dataset.sub)) { sfx.denied(); showToast(unlockHint(sub.dataset.sub)); return; }
     if (sub) { sfx.tap(); setHeroSub(sub.dataset.sub); document.getElementById('tab-panel').dataset.html = ''; render(); document.getElementById('tab-panel').scrollTop = 0; return; }
     const b = e.target.closest('button[data-action]');
     if (!b || b.disabled) return;
@@ -7226,7 +7511,7 @@ function bindUi() {
       if (buySpeed(state)) { sfx.buy(); showToast(tr('Boj ×{v} na {v2} min', { v: PREMIUM.speedMult, v2: PREMIUM.speedMinutes })); render(); }
     } else if (b.dataset.action === 'd-instant') {
       const sum = buyInstant(state, { onKill: (ev) => { track(state, 'kill'); if (ev.isBoss) { track(state, 'boss'); firstBossReward(state, ev.layer); addPassXp(state, PASS.xpBoss); } } });
-      if (sum) { battle = createBattle(state); sfx.levelUp(); render(); showOffline(sum, tr('Okamžitý postup')); }
+      if (sum) { battle = createBattle(state); sfx.levelUp(); render(); showOffline(sum, tr('Okamžitý postup'), true); }
     } else if (b.dataset.action === 'd-chest') {
       const item = buyDiamondChest(state);
       if (!item) return;
@@ -7421,6 +7706,64 @@ function animateHit() {
   const s = document.querySelector('#monster .sprite');
   if (!s) return;
   s.classList.remove('hit'); void s.getBoundingClientRect(); s.classList.add('hit');
+}
+
+// ---------------- Měření (anonymní, jen když je zapnuté v configu) ----------------
+function trackSession() {
+  const day = Math.floor((Date.now() - state.createdAt) / 86400000);
+  analytics.event('start');
+  analytics.once(state, `den-${day}`);           // návraty: den 0, 1, 2, 7…
+  const started = Date.now();
+  for (const m of [5, 15, 30, 60]) setTimeout(() => analytics.event(`hrani-${m}min`), m * 60000);
+  setInterval(() => analytics.once(state, `vrstva-${state.progress.maxLayer + 1}`), 60000);
+  void started;
+}
+
+// ---------------- Odemykání a cíle ----------------
+const TAB_UNLOCK = { shop: 'shop', dungeons: 'dungeons', research: 'research' };
+function tabOpen(t) { return !TAB_UNLOCK[t] || isUnlocked(state, TAB_UNLOCK[t]); }
+
+function announceUnlocks() {
+  const fresh = checkUnlocks(state);
+  fresh.forEach((u, i) => setTimeout(() => {
+    sfx.levelUp();
+    fx.banner(tr('ODEMČENO'), '#1fc7a8', u.name);
+    const nb = document.querySelector(`#nav button[data-tab="${u.id}"]`) ?? (['skills', 'pets', 'more'].includes(u.id) ? document.querySelector('#nav button[data-tab="hero"]') : null);
+    nb?.classList.add('new');
+    analytics.event(`unlock-${u.id}`);
+  }, 400 + i * 1600));
+  if (fresh.length) saveState(state);
+}
+
+function renderLocks() {
+  document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('locked', !tabOpen(b.dataset.tab)));
+  document.getElementById('btn-quests').classList.toggle('hidden', !isUnlocked(state, 'quests'));
+  document.getElementById('btn-chances').classList.toggle('locked', !isUnlocked(state, 'ingredients'));
+  renderGoal();
+}
+
+function renderGoal() {
+  const c = currentGoal(state);
+  const el = document.getElementById('goal');
+  const html = `<span class="g-ico">${c.done ? ICON.gift : ICON.target}</span><span class="g-txt">${goalText(c.goal)}</span><b>${c.done ? tr('Vyzvednout!') : `${formatNumber(c.have)}/${formatNumber(c.need)}`}</b>`;
+  if (el.dataset.v !== html) { el.dataset.v = html; el.innerHTML = html; }
+  el.classList.toggle('done', c.done);
+}
+
+function claimCurrentGoal() {
+  const idx = state.goals?.index ?? 0;
+  const r = claimGoal(state);
+  if (!r) { sfx.tap(); showToast(goalText(currentGoal(state).goal)); return; }
+  sfx.buy(); setTimeout(sfx.levelUp, 150);
+  const parts = [];
+  if (r.gold) parts.push(`+${formatNumber(r.gold)}${ICON.gold}`);
+  if (r.coal) parts.push(`+${formatNumber(r.coal)}${ICON.coal}`);
+  if (r.diamonds) parts.push(`+${formatNumber(r.diamonds)}${ICON.diamond}`);
+  if (r.scrolls) parts.push(`+${formatNumber(r.scrolls)}${ICON.scroll}`);
+  showToast(`${tr('Cíl splněn')} ${parts.join(' ')}`, 2200);
+  analytics.event(`goal-${idx + 1}`);
+  saveState(state);
+  render();
 }
 
 // Akce nových záložek (kobky, dovednosti, mazlíčci, výzkum). Vrací true, když akci obsloužila.
